@@ -285,7 +285,7 @@ function Nav({ page, setPage, themeMode, setThemeMode }) {
     <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: scrolled ? "var(--nav-bg)" : "transparent", backdropFilter: scrolled ? "blur(14px)" : "none", borderBottom: scrolled ? "1px solid var(--c-border)" : "1px solid transparent", transition: "all .3s" }}>
       <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
         <button onClick={() => { setPage({ name: "home" }); setMenuOpen(false); }} style={{ background: "none", border: "none", cursor: "pointer" }}>
-          <span style={{ fontSize: 22, fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--c-amber)" }}>RateWise</span>
+          <span style={{ fontSize: 22, fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--c-amber)" }}>Hindsight</span>
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {links.map(l => (
@@ -340,7 +340,7 @@ function PropertyCard({ property, onClick }) {
 // --- SHARE / REFERRAL COMPONENT ---
 function SharePrompt({ compact = false }) {
   const [copied, setCopied] = useState(false);
-  const shareText = "I just reviewed my old rental on RateWise. If you have rented anywhere in the UK, leave a review too - it helps the next tenant avoid nasty surprises. Check it out:";
+  const shareText = "I just reviewed my old rental on Hindsight. If you have rented anywhere in the UK, leave a review too - it helps the next tenant avoid nasty surprises. Check it out:";
   const shareUrl = "https://ratewise.co.uk";
 
   const copyLink = () => {
@@ -529,7 +529,7 @@ function SearchPage({ setPage, properties, initialQuery }) {
             <p style={{ fontSize: 48, marginBottom: 12 }}>🔍</p>
             <h3 style={{ fontFamily: "var(--font-display)", fontSize: 22, marginBottom: 8, color: "var(--c-text-bright)" }}>No reviews found for this property yet</h3>
             <p style={{ color: "var(--c-text-sec)", marginBottom: 8, maxWidth: 460, margin: "0 auto 8px", lineHeight: 1.7 }}>
-              We do not have any reviews matching "{query}" yet. This property has not been reviewed on RateWise.
+              We do not have any reviews matching "{query}" yet. This property has not been reviewed on Hindsight.
             </p>
             {isPostcodeLike && (
               <p style={{ color: "var(--c-text-sec)", fontSize: 14, marginBottom: 20, maxWidth: 460, margin: "0 auto 20px" }}>
@@ -961,7 +961,7 @@ function AboutPage({ setPage }) {
         <h1 className="fade-up" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 44px)", marginBottom: 20, color: "var(--c-text-bright)" }}>Renting in the UK is a gamble. We are fixing that.</h1>
         <div className="fade-up fade-up-d1" style={{ color: "var(--c-text-sec)", fontSize: 16, lineHeight: 1.8 }}>
           <p style={{ marginBottom: 20 }}>Every year, thousands of tenants sign leases for properties they know almost nothing about. Rightmove shows you staged photos. Letting agents show you the place on its best day. Nobody tells you about the black mould behind the wardrobe, the boiler that dies every February, or the landlord who takes six weeks to return a call.</p>
-          <p style={{ marginBottom: 20 }}>RateWise exists to change that. We are a free, independent platform where verified previous tenants leave honest, structured reviews covering {CRITERIA_KEYS.length} specific criteria that actually matter when you live somewhere.</p>
+          <p style={{ marginBottom: 20 }}>Hindsight exists to change that. We are a free, independent platform where verified previous tenants leave honest, structured reviews covering {CRITERIA_KEYS.length} specific criteria that actually matter when you live somewhere.</p>
 
           <div style={{ background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: "var(--radius)", padding: 24, margin: "28px 0" }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 16, color: "var(--c-text-bright)" }}>What we rate ({CRITERIA_KEYS.length} criteria)</h2>
@@ -1010,7 +1010,7 @@ function Footer({ setPage }) {
     <footer style={{ background: "var(--c-surface)", borderTop: "1px solid var(--c-border)", padding: "40px 24px" }}>
       <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 24 }}>
         <div>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--c-amber)" }}>RateWise</span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--c-amber)" }}>Hindsight</span>
           <p style={{ color: "var(--c-text-sec)", fontSize: 13, marginTop: 6, maxWidth: 300 }}>Unfiltered tenant reviews for UK rental properties.</p>
         </div>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
@@ -1021,7 +1021,7 @@ function Footer({ setPage }) {
         <a href="https://www.ofcom.org.uk/mobile-coverage-checker" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "var(--c-text-sec)", textDecoration: "underline" }}>Ofcom Coverage Checker</a>
       </div>
       <div className="container" style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--c-border)" }}>
-        <p style={{ color: "var(--c-muted)", fontSize: 12, textAlign: "center" }}>RateWise 2026. Built for tenants, by tenants.</p>
+        <p style={{ color: "var(--c-muted)", fontSize: 12, textAlign: "center" }}>Hindsight 2026. Built for tenants, by tenants.</p>
       </div>
     </footer>
   );
