@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 // ============================================================
-// RATEWISE - Unfiltered Tenant Reviews for UK Rentals
+// Hindsight - Unfiltered Tenant Reviews for UK Rentals
 // v3: Referral prompts, working search, postcode lookup,
 // flat number, updated verification, About page edits
 // ============================================================
