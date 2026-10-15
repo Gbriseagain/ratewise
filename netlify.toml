@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "build"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Always fetch the newest service worker so app updates reach phones quickly.
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache"

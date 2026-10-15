@@ -1,70 +1,38 @@
-# Getting Started with Create React App
+# Hindsight
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Unfiltered reviews from real UK tenants. Live at https://eclectic-starburst-a21356.netlify.app
 
-## Available Scripts
+## How it fits together
 
-In the project directory, you can run:
+- **Website and app**: React, built and hosted by Netlify. Every push to `main` redeploys automatically.
+  On the Netlify free plan each production deploy uses 15 of your 300 monthly credits, so batch changes.
+- **Database**: Supabase. The full setup is in `supabase/setup.sql`. Run it once in Supabase > SQL Editor.
+- **Address finder**: free. postcodes.io checks the postcode, OpenStreetMap lists house numbers and streets,
+  and homes already on Hindsight show first. Royal Mail's full list is a paid product.
+- **Keep-awake**: `.github/workflows/keep-database-awake.yml` pings Supabase every three days,
+  because free Supabase projects pause after seven quiet days.
 
-### `npm start`
+## Running the site day to day (Supabase > Table Editor)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+| Job | Where | What to change |
+| --- | --- | --- |
+| Hide a review | `reviews` | set `status` to `hidden` |
+| Mark a review verified | `reviews` | set `verified` to `true` |
+| See who offered proof | `review_private` | method and optional email, never public |
+| Handle complaints | `reports` | read the report, then set `status` to `actioned` or `rejected` |
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Act on every complaint within 48 hours. Under the Defamation (Operators of Websites) Regulations 2013,
+that means contacting the reviewer if they left an email, or hiding the review if they did not.
+Following that process is what keeps your legal protection as a website operator.
 
-### `npm test`
+## Editing the questions
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+All questions live in `src/lib/criteria.js`. If you add or remove a scored question,
+update the list of keys at the top of `submit_review` in `supabase/setup.sql` and run it again.
 
-### `npm run build`
+## Local development
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
+npm install
+npm start
+```
