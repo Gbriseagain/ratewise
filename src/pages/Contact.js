@@ -17,7 +17,7 @@ export default function Contact() {
     if (!valid) return;
     setState({ sending: true, sent: false, error: "" });
     try {
-      await sendForm("contact", form);
+      await sendForm("contact", { ...form, subject: `Hindsight message: ${form.topic || "General"}` });
       setState({ sending: false, sent: true, error: "" });
     } catch (err) {
       setState({ sending: false, sent: false, error: err.message });

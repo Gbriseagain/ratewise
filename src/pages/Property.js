@@ -17,7 +17,7 @@ function ReportSheet({ review, propertyLabel, onClose }) {
     setBusy(true);
     try {
       await reportReview(review.id, reason, details, email);
-      sendForm("review-report", { review_id: review.id, property: propertyLabel, reason, details, email }).catch(() => {});
+      sendForm("review-report", { review_id: review.id, property: propertyLabel, reason, details, email, subject: `Hindsight: review reported at ${propertyLabel}` }).catch(() => {});
       toast("Report sent. We review every report within 48 hours.");
       onClose();
     } catch (e) {
