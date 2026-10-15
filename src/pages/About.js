@@ -1,5 +1,4 @@
 import { ShareInvite } from "./Home";
-import { CONTACT_EMAIL } from "../config";
 import { CRITERIA, GROUPS } from "../lib/criteria";
 import { link } from "../lib/router";
 
@@ -85,13 +84,14 @@ export function Privacy() {
         <h2>Your rights</h2>
         <p>
           You can ask for your review to be removed, or for a copy of what we hold about you, at any time.
-          {CONTACT_EMAIL ? <> Email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</> : " Use the Report button on your review and say it is yours."}
+          {" "}Use the <a href={link("/contact")}>contact form</a> and we will reply by email.
           {" "}You can also complain to the Information Commissioner's Office at ico.org.uk.
         </p>
 
         <h2>Complaints about a review</h2>
         <p>
           Every review has a Report button. Tell us what is wrong and, if you want a reply, leave an email.
+          For anything else, use the <a href={link("/contact")}>contact form</a>.
           We look at every report within 48 hours. Reviews that break the rules are hidden; the rest stay up and we tell you why.
         </p>
         <p>Reviews must describe the writer's own experience, must not name or expose private individuals, and must not be abusive.</p>

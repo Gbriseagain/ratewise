@@ -40,5 +40,14 @@
   <body>
     <noscript>Hindsight needs JavaScript switched on.</noscript>
     <div id="root"></div>
+    <!-- Netlify reads these at deploy time. Submissions are emailed privately to the site owner. -->
+    <form name="contact" data-netlify="true" netlify-honeypot="company" hidden>
+      <input type="text" name="name" /><input type="email" name="email" /><input type="text" name="topic" />
+      <textarea name="message"></textarea><input type="text" name="company" />
+    </form>
+    <form name="review-report" data-netlify="true" hidden>
+      <input type="text" name="review_id" /><input type="text" name="property" /><input type="text" name="reason" />
+      <textarea name="details"></textarea><input type="email" name="email" />
+    </form>
   </body>
 </html>

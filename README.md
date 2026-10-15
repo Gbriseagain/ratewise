@@ -21,6 +21,9 @@ Unfiltered reviews from real UK tenants. Live at https://eclectic-starburst-a213
 | See who offered proof | `review_private` | method and optional email, never public |
 | Handle complaints | `reports` | read the report, then set `status` to `actioned` or `rejected` |
 
+Contact form messages and review reports are also emailed to you through Netlify Forms.
+The destination address is set in Netlify (Forms > Form notifications), never in this public code.
+
 Act on every complaint within 48 hours. Under the Defamation (Operators of Websites) Regulations 2013,
 that means contacting the reviewer if they left an email, or hiding the review if they did not.
 Following that process is what keeps your legal protection as a website operator.

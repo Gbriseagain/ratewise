@@ -8,6 +8,7 @@ import Search from "./pages/Search";
 import Property from "./pages/Property";
 import Review from "./pages/Review";
 import { About, Privacy } from "./pages/About";
+import Contact from "./pages/Contact";
 
 const TITLES = {
   home: "Hindsight | Unfiltered UK rental reviews",
@@ -15,6 +16,7 @@ const TITLES = {
   review: "Leave a review | Hindsight",
   about: "About | Hindsight",
   privacy: "Privacy and complaints | Hindsight",
+  contact: "Contact | Hindsight",
   property: "Tenant reviews | Hindsight",
 };
 
@@ -39,6 +41,7 @@ export default function App() {
     case "review": page = <Review route={route} onPublished={load} />; break;
     case "about": page = <About />; break;
     case "privacy": page = <Privacy />; break;
+    case "contact": page = <Contact />; break;
     default: page = <Home {...data} />;
   }
 

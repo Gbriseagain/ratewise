@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon, Logo } from "./ui";
 import { link } from "../lib/router";
-import { CONTACT_EMAIL } from "../config";
 
 const THEME_KEY = "hindsight-theme";
 
@@ -108,7 +107,7 @@ export function Footer() {
         <span className="row">
           <a href={link("/about")}>About</a>
           <a href={link("/privacy")}>Privacy and complaints</a>
-          {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>}
+          <a href={link("/contact")}>Contact</a>
         </span>
       </div>
       <div className="wrap tiny" style={{ marginTop: 10 }}>

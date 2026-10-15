@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Meter from "../components/Meter";
 import { Icon, ScoreRing, Sheet, shareLink, useToast } from "../components/ui";
 import { fetchProperty, reportReview } from "../lib/api";
+import { sendForm } from "../lib/notify";
 import { CRITERIA, DETAILS, GROUPS, REPORT_REASONS } from "../lib/criteria";
 import { go, link } from "../lib/router";
 import { avg, displayAddress, fmt, monthLabel, overall, reviewAvg } from "../lib/stats";
 
-function ReportSheet({ review, onClose }) {
+function ReportSheet({ review, propertyLabel, onClose }) {
   const toast = useToast();
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
@@ -16,6 +17,7 @@ function ReportSheet({ review, onClose }) {
     setBusy(true);
     try {
       await reportReview(review.id, reason, details, email);
+      sendForm("review-report", { review_id: review.id, property: propertyLabel, reason, details, email }).catch(() => {});
       toast("Report sent. We review every report within 48 hours.");
       onClose();
     } catch (e) {
@@ -293,7 +295,7 @@ export default function Property({ id }) {
           </div>
         </section>
       </div>
-      {reporting && <ReportSheet review={reporting} onClose={closeReport} />}
+      {reporting && <ReportSheet review={reporting} propertyLabel={`${displayAddress(property)}, ${property.postcode}`} onClose={closeReport} />}
     </main>
   );
 }
