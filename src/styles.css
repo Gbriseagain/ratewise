@@ -398,3 +398,32 @@ textarea.input { resize: vertical; line-height: 1.6; }
 .loc { display: flex; gap: 6px; align-items: flex-start; margin-top: 6px; }
 .loc svg { flex-shrink: 0; margin-top: 4px; }
 @media (min-width: 761px) { .chips.scroll { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; } }
+
+/* ---------- Map ---------- */
+.map { height: min(62vh, 520px); width: 100%; border-radius: var(--r-lg); border: 1px solid var(--line); overflow: hidden; background: var(--panel-2); z-index: 0; }
+[data-theme="dark"] .map .leaflet-tile-pane { filter: invert(1) hue-rotate(185deg) brightness(0.92) contrast(0.88) saturate(0.6); }
+.map .leaflet-control-attribution { font-size: 11px; background: var(--nav-bg); color: var(--muted); }
+.map .leaflet-control-attribution a { color: var(--muted); }
+.map .leaflet-bar a { background: var(--panel); color: var(--text); border-color: var(--line); }
+.pin-wrap { background: none; border: 0; }
+.pin {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  font-family: var(--serif); font-weight: 700; font-size: 14px; color: #fff;
+  border: 3px solid var(--bg); box-shadow: 0 4px 12px rgba(3, 9, 18, 0.35); background: var(--line);
+}
+.pin.s1 { background: var(--s1); } .pin.s2 { background: var(--s2); } .pin.s5 { background: var(--s5); }
+.pin.s3 { background: var(--s3); color: #0b1a2e; } .pin.s4 { background: var(--s4); color: #0b1a2e; }
+.pin-count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: var(--amber); color: var(--on-amber); font-family: var(--sans); font-size: 11px; display: grid; place-items: center; }
+.map .leaflet-popup-content-wrapper, .map .leaflet-popup-tip { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+.map .leaflet-popup-content { margin: 10px 12px; font-family: var(--sans); }
+.pop { display: grid; gap: 6px; }
+.pop-row { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; text-decoration: none; color: var(--text) !important; }
+.pop-row:hover { background: var(--panel-2); }
+.pop-row strong { color: var(--strong); font-size: 14px; }
+.pop-row span { color: var(--muted); font-size: 12px; }
+.skeleton.map { border: 0; }
+
+/* ---------- Replies and admin ---------- */
+.reply { margin-top: 14px; padding: 12px 14px; border-radius: 0 var(--r-md) var(--r-md) 0; background: var(--panel-2); border-left: 3px solid var(--amber); }
+.admin-card { margin-top: 14px; }
+.admin-card .why { margin-top: 10px; }

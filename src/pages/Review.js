@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChoiceChips, Icon, ScoreRing, buzz, shareLink, useToast } from "../components/ui";
 import { fetchProperty, fetchPropertiesAtPostcode, submitReview } from "../lib/api";
+import { sendForm } from "../lib/notify";
+import { SITE_URL } from "../config";
 import { findAddresses, lookupPostcode, normalisePostcode } from "../lib/address";
 import {
   CRITERIA, CRITERION, DETAILS, GROUPS, PROPERTY_TYPES, RETROFIT, RETROFIT_WORKS, SCORE_WORDS, VERIFY_METHODS,
@@ -12,6 +14,16 @@ const DRAFT_KEY = "hindsight-review-draft-v1";
 const NOW_MONTH = new Date().toISOString().slice(0, 7);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+// Mirrors the server's checks for contact details, so people can remove
+// them before publishing. The server makes the final decision.
+function contactDetailsIn(text) {
+  const found = [];
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(text)) found.push("an email address");
+  if (/(\+44|0044|0)[1-9][0-9]{8,9}/.test(text.replace(/[\s().-]/g, ""))) found.push("a phone number");
+  if (/(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|co\.uk|org\.uk|org|net|io)\b)/i.test(text)) found.push("a web link");
+  return found;
+}
+
 const EMPTY = {
   postcode: "", town: "", area: "", lat: null, lon: null,
   flat_number: "", house: "", street: "", city: "", property_type: "",
@@ -19,7 +31,7 @@ const EMPTY = {
   verify_method: "", contact_email: "", confirmed: false,
   details: {}, retrofit_works: [],
   scores: {}, explanations: {}, comment_open: {},
-  summary: "", body: "", website: "",
+  summary: "", body: "", website: "", agreed_terms: false,
 };
 
 const STEPS = [
@@ -387,15 +399,26 @@ export default function Review({ route, onPublished }) {
     }).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && !v.length)));
     const explanations = Object.fromEntries(Object.entries(draft.explanations).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
     try {
-      const propertyIdOut = await submitReview({
+      const result = await submitReview({
         postcode: draft.postcode, flat_number: draft.flat_number.trim(), address_line: addressLine(draft), city: draft.city.trim(),
         area: draft.area, property_type: draft.property_type, latitude: draft.lat, longitude: draft.lon,
         author_name: draft.author_name.trim(), moved_in: draft.moved_in, moved_out: draft.moved_out,
         summary: draft.summary.trim(), body: draft.body.trim(), scores: draft.scores, explanations, details,
         verify_method: draft.verify_method, contact_email: draft.contact_email.trim(), website: draft.website,
+        agreed_terms: draft.agreed_terms,
       });
+      const title = [draft.flat_number.trim(), addressLine(draft)].filter(Boolean).join(", ");
+      const pending = result.status === "pending";
+      // Private email alert to the owner. Contains no secrets.
+      sendForm("new-review", {
+        property: `${title}, ${draft.postcode}`,
+        author: draft.author_name.trim(),
+        summary: draft.summary.trim(),
+        status: pending ? `Waiting for approval (mentions ${(result.reasons || []).join(", ")})` : "Published",
+        subject: pending ? `Hindsight: review waiting for approval at ${title}` : `Hindsight: new review published at ${title}`,
+      }).catch(() => {});
       clearDraft();
-      setDone({ propertyId: propertyIdOut, title: [draft.flat_number.trim(), addressLine(draft)].filter(Boolean).join(", ") });
+      setDone({ propertyId: result.property_id, title, pending, reasons: result.reasons || [] });
       if (onPublished) onPublished();
       window.scrollTo({ top: 0 });
     } catch (e) {
@@ -416,16 +439,23 @@ export default function Review({ route, onPublished }) {
     return (
       <main className="page"><div className="wrap flow" style={{ textAlign: "center" }}>
         <div className="done-burst"><Icon name="check" size={40} stroke={3} /></div>
-        <h1 style={{ fontSize: "clamp(1.9rem, 5vw, 2.6rem)", margin: "0 auto" }}>Your review is live</h1>
+        <h1 style={{ fontSize: "clamp(1.9rem, 5vw, 2.6rem)", margin: "0 auto" }}>
+          {done.pending ? "Thanks, your review is being checked" : "Your review is live"}
+        </h1>
         <p className="muted" style={{ margin: "12px auto 24px" }}>
-          The next person looking at {done.title} will see it. If you added an email, we may contact you for a photo of a bill so we can mark it verified.
+          {done.pending
+            ? `It mentions ${done.reasons.join(" and ")}, so a person will read it before it goes live, usually within 48 hours.`
+            : `The next person looking at ${done.title} will see it.`}
+          {" "}If you added an email, we may contact you for a photo of a bill so we can mark it verified.
         </p>
         <div className="row" style={{ justifyContent: "center" }}>
-          <a className="btn btn-primary" href={link(`/property/${done.propertyId}`)}>See your review</a>
+          {done.pending
+            ? <a className="btn btn-primary" href={link("/")}>Back to Hindsight</a>
+            : <a className="btn btn-primary" href={link(`/property/${done.propertyId}`)}>See your review</a>}
           <button type="button" className="btn btn-ghost" onClick={() => shareLink({
             title: "Hindsight",
             text: "I just reviewed a place I rented on Hindsight. If you've rented in the UK, review yours too:",
-            url: window.location.origin,
+            url: SITE_URL,
           }, toast)}>
             <Icon name="share" size={18} /> Ask friends to review theirs
           </button>
@@ -440,6 +470,9 @@ export default function Review({ route, onPublished }) {
   const rateIndex = current.key ? step - FIRST_RATE + 1 : 0;
   const pct = Math.round(((step + (valid ? 1 : 0)) / STEPS.length) * 100);
   const lowScores = CRITERIA.filter((c) => draft.scores[c.key] && draft.scores[c.key] <= 3);
+  const contactWarning = current.id === "check"
+    ? contactDetailsIn([draft.author_name, draft.summary, draft.body, ...Object.values(draft.explanations), draft.details.crime_types || "", draft.details.deposit_issues || ""].join(" "))
+    : [];
 
   return (
     <main className="page">
@@ -594,12 +627,26 @@ export default function Review({ route, onPublished }) {
                   </div>
                 </div>
               )}
+              {contactWarning.length > 0 && (
+                <p className="note info">
+                  Your review mentions what looks like {contactWarning.join(" and ")}. Reviews like this wait for a person to check them.
+                  Remove it to publish straight away.
+                </p>
+              )}
+              <button type="button" className={`check${draft.agreed_terms ? " on" : ""}`} aria-pressed={draft.agreed_terms}
+                onClick={() => { buzz(); patch({ agreed_terms: !draft.agreed_terms }); }}>
+                <span className="check-box">{draft.agreed_terms && <Icon name="check" size={14} stroke={3} />}</span>
+                <span className="small">
+                  I agree to the <a href={link("/terms")} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>terms of use</a>.
+                  This is my own honest experience, and it names no private individuals.
+                </span>
+              </button>
               <p className="small muted">
-                By publishing you confirm this is your own experience. It goes live straight away. Anyone can report a review, and we act on reports within 48 hours.
+                Most reviews go live straight away. Anyone can report a review, and we act on reports within 48 hours.
                 See <a href={link("/privacy")}>privacy and complaints</a>.
               </p>
               {sendError && <p className="note bad">{sendError}</p>}
-              <button type="button" className="btn btn-primary btn-block" disabled={sending} onClick={publish}>
+              <button type="button" className="btn btn-primary btn-block" disabled={sending || !draft.agreed_terms} onClick={publish}>
                 {sending ? "Publishing" : "Publish review"}
               </button>
             </div>

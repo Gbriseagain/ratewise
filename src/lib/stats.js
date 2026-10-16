@@ -58,3 +58,26 @@ export function monthLabel(ym) {
 export function displayAddress(p) {
   return [p.flat_number, p.address_line].filter(Boolean).join(", ");
 }
+
+// Readable page address, e.g. /property/abc123/14-pemberton-road-n4-5ph.
+// Must match the slug in supabase/functions sitemap.
+export function propertyPath(p) {
+  const slug = [p.flat_number, p.address_line, p.postcode]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `/property/${p.id}/${slug}`;
+}
+
+// Straight-line distance in miles between two points.
+export function milesBetween(aLat, aLon, bLat, bLon) {
+  const r = 3958.8;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLon = toRad(bLon - aLon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(h));
+}

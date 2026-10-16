@@ -6,14 +6,15 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const PROPERTY_FIELDS = "id, created_at, flat_number, address_line, city, postcode, area, property_type, latitude, longitude";
-const REVIEW_FIELDS = "id, created_at, author_name, moved_in, moved_out, summary, body, scores, explanations, details, verified";
+const REPLY_FIELDS = "id, created_at, responder_name, responder_role, body, published_at";
+const REVIEW_FIELDS = `id, created_at, author_name, moved_in, moved_out, summary, body, scores, explanations, details, verified, review_replies(${REPLY_FIELDS})`;
 
 // Turns database errors into something a person can act on.
 function friendly(error) {
   if (!error) return null;
   const code = error.code || "";
   if (code === "PGRST205" || code === "42P01" || /does not exist|schema cache/i.test(error.message || "")) {
-    return new Error("The review database is not switched on yet. Run the setup file in Supabase.");
+    return new Error("The review database is not available right now. Try again in a few minutes.");
   }
   if (/fetch|network/i.test(error.message || "")) {
     return new Error("No connection. Check your internet and try again.");
@@ -33,6 +34,7 @@ export async function fetchProperties() {
 }
 
 export async function fetchProperty(id) {
+  if (!/^[0-9a-f-]{36}$/i.test(id || "")) return null;
   const { data, error } = await supabase
     .from("properties")
     .select(`${PROPERTY_FIELDS}, reviews(${REVIEW_FIELDS})`)
@@ -53,8 +55,15 @@ export async function fetchPropertiesAtPostcode(postcode) {
   return data || [];
 }
 
+// Returns { property_id, review_id, status: "published" | "pending", reasons: [] }.
 export async function submitReview(payload) {
-  const { data, error } = await supabase.rpc("submit_review", { payload });
+  const { data, error } = await supabase.rpc("submit_review_v2", { payload });
+  if (error) throw friendly(error);
+  return data;
+}
+
+export async function submitReply(payload) {
+  const { data, error } = await supabase.rpc("submit_reply", { payload });
   if (error) throw friendly(error);
   return data;
 }
@@ -66,5 +75,20 @@ export async function reportReview(reviewId, reason, details, email) {
     p_details: details || null,
     p_email: email || null,
   });
+  if (error) throw friendly(error);
+}
+
+// ---------- Owner tools (need the private admin key) ----------
+
+export async function adminOverview(key) {
+  const { data, error } = await supabase.rpc("admin_overview", { p_key: key });
+  if (error) throw friendly(error);
+  return data;
+}
+
+export async function adminAction(kind, key, id, action) {
+  const fn = { review: "admin_review_action", reply: "admin_reply_action", report: "admin_report_action" }[kind];
+  const idParam = { review: "p_review_id", reply: "p_reply_id", report: "p_report_id" }[kind];
+  const { error } = await supabase.rpc(fn, { p_key: key, [idParam]: id, p_action: action });
   if (error) throw friendly(error);
 }

@@ -1,6 +1,6 @@
 # Hindsight
 
-Unfiltered reviews from real UK tenants. Live at https://eclectic-starburst-a21356.netlify.app
+Unfiltered reviews from real UK tenants. Live at https://hindsight-reviews.netlify.app
 
 ## How it fits together
 
@@ -12,7 +12,27 @@ Unfiltered reviews from real UK tenants. Live at https://eclectic-starburst-a213
 - **Keep-awake**: `.github/workflows/keep-database-awake.yml` pings Supabase every three days,
   because free Supabase projects pause after seven quiet days.
 
-## Running the site day to day (Supabase > Table Editor)
+## Running the site day to day
+
+Use your private admin link (`/admin#k=...`, kept out of this public code). It lists:
+
+- **Reviews waiting for approval.** Reviews mentioning contact details, a person's name, strong language or
+  serious allegations are held automatically. Publish or reject them.
+- **Landlord and agent replies.** Every reply waits for approval. Check the sender is connected to the property first.
+- **Reports.** Hide the review or keep it up. Act within 48 hours.
+- **Recent reviews.** Mark a review verified once you have seen proof the writer lived there.
+
+Email alerts arrive through Netlify Forms (forms: `contact`, `review-report`, `new-review`, `new-reply`).
+Set the destination in Netlify > Forms > Form notifications.
+
+If the admin link is ever lost or leaked, replace its hash in the `admin_keys` table.
+
+## Search engines
+
+Pages use normal addresses (`/property/<id>/<readable-name>`). `/sitemap.xml` is generated live by the
+`sitemap` Supabase Edge Function (proxied in `netlify.toml`), so new homes are listed for Google automatically.
+
+## Doing the same jobs in Supabase (Table Editor)
 
 | Job | Where | What to change |
 | --- | --- | --- |

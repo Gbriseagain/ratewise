@@ -34,8 +34,11 @@ export function About() {
           <li><strong>Only after moving out.</strong> Reviews open once your tenancy has ended, so nobody writes in fear of their landlord.</li>
           <li><strong>Low scores need a reason.</strong> Any score of 3 or below needs a written explanation. That is what makes a score useful.</li>
           <li><strong>Tenants confirm they lived there.</strong> Each reviewer declares how they could prove it. Reviews show as verified once we have checked a bill or council tax letter.</li>
+          <li><strong>Risky reviews are checked first.</strong> Reviews that mention names, contact details, strong language or serious allegations wait for a person to read them.</li>
           <li><strong>Anyone can report a review.</strong> Landlords and agents included. We look at every report within 48 hours.</li>
+          <li><strong>Landlords and agents can reply.</strong> Each reply is checked before it appears under the review it answers.</li>
         </ul>
+        <p>The full rules are in the <a href={link("/terms")}>terms of use</a>.</p>
 
         <h2>Energy upgrades</h2>
         <p>
@@ -64,7 +67,8 @@ export function Privacy() {
         <h2>What we collect</h2>
         <ul>
           <li><strong>Published with your review:</strong> the name or initials you give, the months you moved in and out, your scores, comments and answers about the home.</li>
-          <li><strong>Kept private:</strong> how you said you could prove you lived there, and your email address if you chose to give one.</li>
+          <li><strong>Kept private:</strong> how you said you could prove you lived there, your email address if you chose to give one, and when you agreed to the terms of use.</li>
+          <li><strong>Landlord and agent replies:</strong> the name, role and reply are published once approved. The email address is kept private and only used to confirm who sent it.</li>
           <li><strong>On your device only:</strong> an unfinished review and your colour theme, so you can pick up where you left off.</li>
         </ul>
         <p>We do not use advertising trackers and we do not sell data.</p>
@@ -78,7 +82,9 @@ export function Privacy() {
         <h2>Who processes it</h2>
         <p>
           Reviews are stored securely with Supabase. Postcodes are checked with postcodes.io and address
-          suggestions come from OpenStreetMap; those services see the postcode you type, nothing else.
+          suggestions and maps come from OpenStreetMap; those services see the postcode or map area you look at, nothing else.
+          If you use "Near me" on the map, your location stays on your device and is only used to centre the map.
+          Messages from the contact form and alerts about new reviews are delivered by Netlify.
         </p>
 
         <h2>Your rights</h2>

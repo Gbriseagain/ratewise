@@ -1,10 +1,11 @@
 import Meter from "../components/Meter";
 import PropertyCard, { CardSkeletons } from "../components/PropertyCard";
 import SearchBox from "../components/SearchBox";
-import { ScoreRing, shareLink, useToast } from "../components/ui";
+import { Icon, ScoreRing, shareLink, useToast } from "../components/ui";
+import { SITE_URL } from "../config";
 import { QUICK_FILTERS } from "../lib/criteria";
 import { link } from "../lib/router";
-import { displayAddress, overall } from "../lib/stats";
+import { displayAddress, overall, propertyPath } from "../lib/stats";
 
 const PREVIEW_KEYS = ["damp", "heating", "epc_reality", "noise", "landlord", "maintenance"];
 
@@ -16,7 +17,7 @@ const EXAMPLE = [
 
 export function ShareInvite() {
   const toast = useToast();
-  const url = window.location.origin;
+  const url = SITE_URL;
   return (
     <section className="section panel">
       <h2>Ask the people you know</h2>
@@ -52,6 +53,7 @@ export default function Home({ properties, loading, error }) {
             </p>
             <SearchBox properties={properties} />
             <div className="chips scroll" style={{ marginTop: 16 }}>
+              <a className="chip" href={link("/search?view=map")}><Icon name="pin" size={14} /> See the map</a>
               {QUICK_FILTERS.map((f) => (
                 <a key={f.key} className="chip" href={link(`/search?rank=${f.key}`)}>{f.label}</a>
               ))}
@@ -65,7 +67,7 @@ export default function Home({ properties, loading, error }) {
             )}
           </div>
 
-          <a className="panel" href={latest ? link(`/property/${latest.id}`) : link("/review")}
+          <a className="panel" href={latest ? link(propertyPath(latest)) : link("/review")}
             style={{ textDecoration: "none", display: "block", boxShadow: "var(--shadow)" }}>
             <div className="spread" style={{ marginBottom: 18 }}>
               <div>

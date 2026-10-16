@@ -106,12 +106,13 @@ export function Footer() {
         <span>Hindsight. Reviews from people who lived there.</span>
         <span className="row">
           <a href={link("/about")}>About</a>
+          <a href={link("/terms")}>Terms</a>
           <a href={link("/privacy")}>Privacy and complaints</a>
           <a href={link("/contact")}>Contact</a>
         </span>
       </div>
       <div className="wrap tiny" style={{ marginTop: 10 }}>
-        Postcode data from postcodes.io (Office for National Statistics, Ordnance Survey). Address suggestions © OpenStreetMap contributors.
+        Postcode data from postcodes.io (Office for National Statistics, Ordnance Survey). Address suggestions and maps © OpenStreetMap contributors.
       </div>
     </footer>
   );

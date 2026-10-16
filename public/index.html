@@ -15,10 +15,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Hindsight" />
 
+    <link rel="canonical" href="https://hindsight-reviews.netlify.app/" />
+    <meta name="robots" content="index, follow" />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://hindsight-reviews.netlify.app/" />
     <meta property="og:title" content="Hindsight | Unfiltered UK rental reviews" />
     <meta property="og:description" content="Check a rental before you sign. Real tenants score damp, heating, landlords and deposits." />
-    <meta property="og:image" content="%PUBLIC_URL%/icon-512.png" />
+    <meta property="og:image" content="https://hindsight-reviews.netlify.app/icon-512.png" />
     <meta name="twitter:card" content="summary" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -44,6 +47,14 @@
     <form name="contact" data-netlify="true" netlify-honeypot="company" hidden>
       <input type="text" name="name" /><input type="email" name="email" /><input type="text" name="topic" />
       <textarea name="message"></textarea><input type="text" name="company" /><input type="hidden" name="subject" />
+    </form>
+    <form name="new-review" data-netlify="true" hidden>
+      <input type="text" name="property" /><input type="text" name="author" /><input type="text" name="summary" />
+      <input type="text" name="status" /><input type="hidden" name="subject" />
+    </form>
+    <form name="new-reply" data-netlify="true" hidden>
+      <input type="text" name="property" /><input type="text" name="review" /><input type="text" name="responder" />
+      <input type="hidden" name="subject" />
     </form>
     <form name="review-report" data-netlify="true" hidden>
       <input type="text" name="review_id" /><input type="text" name="property" /><input type="text" name="reason" />

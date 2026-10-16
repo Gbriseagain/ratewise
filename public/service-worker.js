@@ -3,7 +3,7 @@
    Built assets (/static/...): cache first, they never change once built.
    Reviews and address lookups always go to the network. */
 
-const CACHE = "hindsight-v2";
+const CACHE = "hindsight-v3";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -41,6 +41,6 @@ self.addEventListener("fetch", (event) => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match("/index.html")))
+      .catch(() => caches.match(req).then((hit) => hit || (req.mode === "navigate" ? caches.match("/") : undefined)))
   );
 });

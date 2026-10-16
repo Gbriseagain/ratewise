@@ -1,11 +1,90 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Meter from "../components/Meter";
-import { Icon, ScoreRing, Sheet, shareLink, useToast } from "../components/ui";
-import { fetchProperty, reportReview } from "../lib/api";
+import { ChoiceChips, Icon, ScoreRing, Sheet, buzz, shareLink, useToast } from "../components/ui";
+import { SITE_URL } from "../config";
+import { fetchProperty, reportReview, submitReply } from "../lib/api";
 import { sendForm } from "../lib/notify";
 import { CRITERIA, DETAILS, GROUPS, REPORT_REASONS } from "../lib/criteria";
-import { go, link } from "../lib/router";
-import { avg, displayAddress, fmt, monthLabel, overall, reviewAvg } from "../lib/stats";
+import { go, link, setAddress } from "../lib/router";
+import { useSeo } from "../lib/seo";
+import { avg, displayAddress, fmt, monthLabel, overall, propertyPath, reviewAvg } from "../lib/stats";
+
+const ROLES = ["Landlord", "Letting agent", "Management company"];
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+function ReplySheet({ review, propertyLabel, onClose }) {
+  const toast = useToast();
+  const [f, setF] = useState({ role: "", name: "", email: "", body: "", authorised: false, terms: false, website: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const valid = f.role && f.name.trim().length >= 2 && EMAIL_RE.test(f.email.trim())
+    && f.body.trim().length >= 20 && f.authorised && f.terms;
+
+  const send = async () => {
+    setBusy(true); setError("");
+    try {
+      await submitReply({
+        review_id: review.id, responder_role: f.role, responder_name: f.name.trim(), contact_email: f.email.trim(),
+        body: f.body.trim(), authorised: f.authorised, agreed_terms: f.terms, website: f.website,
+      });
+      sendForm("new-reply", {
+        property: propertyLabel, review: review.summary, responder: `${f.name.trim()} (${f.role})`,
+        subject: `Hindsight: reply waiting for approval at ${propertyLabel}`,
+      }).catch(() => {});
+      toast("Reply sent. We check every reply before it goes live, usually within 48 hours.");
+      onClose();
+    } catch (e) {
+      setError(e.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="Reply to this review" onClose={onClose}>
+      <div className="stack">
+        <p className="small muted">
+          For the landlord, letting agent or management company of this home. Replies appear under the review once we have checked them.
+        </p>
+        <div className="qgroup">
+          <p>You are replying as</p>
+          <ChoiceChips options={ROLES} value={f.role} onChange={(v) => set("role", v)} />
+        </div>
+        <label className="field"><span>Name or company name</span>
+          <input className="input" value={f.name} maxLength={80} placeholder="Acme Lettings" onChange={(e) => set("name", e.target.value)} />
+          <small>Shown with your reply.</small>
+        </label>
+        <label className="field"><span>Email</span>
+          <input className="input" type="email" value={f.email} autoComplete="email" onChange={(e) => set("email", e.target.value)} />
+          <small>Private. Used only to confirm you are connected to the property.</small>
+        </label>
+        <label className="field"><span>Your reply</span>
+          <textarea className="input" rows={5} value={f.body} maxLength={1500} onChange={(e) => set("body", e.target.value)}
+            placeholder="Respond to the points raised. Stick to facts and leave out personal details." />
+          <small>{f.body.trim().length < 20 ? `${20 - f.body.trim().length} more characters needed` : `${f.body.trim().length} of 1,500`}</small>
+        </label>
+        <input type="text" tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website}
+          onChange={(e) => set("website", e.target.value)} style={{ position: "absolute", left: "-9999px" }} />
+        <button type="button" className={`check${f.authorised ? " on" : ""}`} aria-pressed={f.authorised}
+          onClick={() => { buzz(); set("authorised", !f.authorised); }}>
+          <span className="check-box">{f.authorised && <Icon name="check" size={14} stroke={3} />}</span>
+          <span className="small">I am the landlord, agent or manager of this home, or authorised to reply for them.</span>
+        </button>
+        <button type="button" className={`check${f.terms ? " on" : ""}`} aria-pressed={f.terms}
+          onClick={() => { buzz(); set("terms", !f.terms); }}>
+          <span className="check-box">{f.terms && <Icon name="check" size={14} stroke={3} />}</span>
+          <span className="small">
+            I agree to the <a href={link("/terms")} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>terms of use</a>.
+          </span>
+        </button>
+        {error && <p className="note bad">{error}</p>}
+        <button type="button" className="btn btn-primary btn-block" disabled={!valid || busy} onClick={send}>
+          {busy ? "Sending" : "Send reply for checking"}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
 
 function ReportSheet({ review, propertyLabel, onClose }) {
   const toast = useToast();
@@ -53,7 +132,8 @@ function ReportSheet({ review, propertyLabel, onClose }) {
   );
 }
 
-function ReviewItem({ review, onReport }) {
+function ReviewItem({ review, onReport, onReply }) {
+  const replies = [...(review.review_replies || [])].sort((a, b) => new Date(a.published_at || a.created_at) - new Date(b.published_at || b.created_at));
   const low = CRITERIA.filter((c) => review.scores[c.key] <= 3 && review.explanations && review.explanations[c.key]);
   const d = review.details || {};
   return (
@@ -91,8 +171,20 @@ function ReviewItem({ review, onReport }) {
           <span className="muted">{d.deposit_returned}{d.deposit_issues ? `. ${d.deposit_issues}` : ""}</span>
         </p>
       )}
+      {replies.map((rp) => (
+        <div className="reply" key={rp.id}>
+          <p className="small"><strong style={{ color: "var(--strong)" }}>Reply from {rp.responder_name}</strong> <span className="muted">({rp.responder_role.toLowerCase()})</span></p>
+          <p className="small muted" style={{ marginTop: 4, whiteSpace: "pre-line" }}>{rp.body}</p>
+          <p className="tiny muted" style={{ marginTop: 6 }}>
+            {new Date(rp.published_at || rp.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+          </p>
+        </div>
+      ))}
       <div className="row" style={{ marginTop: 10 }}>
         <span className="tiny muted">Posted {new Date(review.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+        <button type="button" className="btn-quiet tiny row" style={{ gap: 4, minHeight: 32 }} onClick={() => onReply(review)}>
+          <Icon name="pen" size={14} /> Landlord or agent? Reply
+        </button>
         <button type="button" className="btn-quiet tiny row" style={{ gap: 4, minHeight: 32 }} onClick={() => onReport(review)}>
           <Icon name="flag" size={14} /> Report
         </button>
@@ -116,7 +208,9 @@ export default function Property({ id }) {
   const [state, setState] = useState({ loading: true, property: null, error: null });
   const [group, setGroup] = useState("all");
   const [reporting, setReporting] = useState(null);
+  const [replying, setReplying] = useState(null);
   const closeReport = useCallback(() => setReporting(null), []);
+  const closeReply = useCallback(() => setReplying(null), []);
 
   useEffect(() => {
     let live = true;
@@ -129,6 +223,19 @@ export default function Property({ id }) {
 
   const property = state.property;
   const reviews = useMemo(() => (property ? property.reviews || [] : []), [property]);
+  const canonical = property ? propertyPath(property) : null;
+
+  // Keep the readable address in the bar, e.g. /property/abc/14-pemberton-road-n4-5ph.
+  useEffect(() => {
+    if (canonical && window.location.pathname !== canonical) setAddress(canonical + window.location.search);
+  }, [canonical]);
+
+  const seoScore = overall(reviews);
+  useSeo(property && reviews.length ? {
+    title: `${displayAddress(property)}, ${property.postcode}: tenant reviews | Hindsight`,
+    description: `${reviews.length} ${reviews.length === 1 ? "tenant review" : "tenant reviews"} of ${displayAddress(property)}, ${[property.area, property.city].filter(Boolean).join(", ")}. Rated ${fmt(seoScore)} out of 5 for damp, heating, the landlord, deposits and more.`,
+    path: canonical,
+  } : { title: "Tenant reviews | Hindsight", noindex: !state.loading });
 
   if (state.loading) {
     return <main className="page"><div className="wrap stack"><div className="skeleton" style={{ height: 160 }} /><div className="skeleton" style={{ height: 420 }} /></div></main>;
@@ -157,7 +264,8 @@ export default function Property({ id }) {
   const latest = reviews[0].details || {};
   const facts = DETAILS.filter((f) => f.type === "one" && f.key !== "epc_band" && f.key !== "deposit_returned" && latest[f.key]);
   const title = displayAddress(property);
-  const url = `${window.location.origin}/#/property/${property.id}`;
+  const url = `${SITE_URL}${canonical}`;
+  const outcode = (property.postcode || "").split(" ")[0];
 
   return (
     <main className="page">
@@ -189,6 +297,11 @@ export default function Property({ id }) {
             <button type="button" className="btn btn-ghost" onClick={() => shareLink({ title, text: `Tenant reviews for ${title}, ${property.postcode} on Hindsight.`, url }, toast)}>
               <Icon name="share" size={18} /> Share
             </button>
+            {outcode && (
+              <a className="btn btn-ghost" href={link(`/search?q=${encodeURIComponent(outcode)}&view=map`)}>
+                <Icon name="pin" size={18} /> Homes nearby
+              </a>
+            )}
           </div>
         </section>
 
@@ -291,11 +404,12 @@ export default function Property({ id }) {
         <section className="section">
           <h2>{reviews.length} {reviews.length === 1 ? "review" : "reviews"}</h2>
           <div style={{ marginTop: 8 }}>
-            {reviews.map((r) => <ReviewItem key={r.id} review={r} onReport={setReporting} />)}
+            {reviews.map((r) => <ReviewItem key={r.id} review={r} onReport={setReporting} onReply={setReplying} />)}
           </div>
         </section>
       </div>
       {reporting && <ReportSheet review={reporting} propertyLabel={`${displayAddress(property)}, ${property.postcode}`} onClose={closeReport} />}
+      {replying && <ReplySheet review={replying} propertyLabel={`${displayAddress(property)}, ${property.postcode}`} onClose={closeReply} />}
     </main>
   );
 }

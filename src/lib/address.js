@@ -62,6 +62,17 @@ export async function lookupPostcode(raw) {
   };
 }
 
+// Centre point for a postcode district such as N4 or BS1.
+export async function lookupOutcode(raw) {
+  const code = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!/^[A-Z]{1,2}[0-9][A-Z0-9]?$/.test(code)) throw new Error("Not a postcode district.");
+  const res = await withTimeout(`https://api.postcodes.io/outcodes/${encodeURIComponent(code)}`);
+  if (!res.ok) throw new Error("We could not find that postcode area.");
+  const { result } = await res.json();
+  if (!result || result.latitude == null) throw new Error("We could not find that postcode area.");
+  return { label: result.outcode, lat: result.latitude, lon: result.longitude };
+}
+
 const collator = new Intl.Collator("en-GB", { numeric: true, sensitivity: "base" });
 
 // Returns { addresses: [{ label, flat, line, town }], streets: [name] }.

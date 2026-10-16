@@ -1,6 +1,6 @@
 import { MiniMeter, ScoreRing } from "./ui";
 import { link } from "../lib/router";
-import { bestAndWorst, displayAddress, groupSummary, overall } from "../lib/stats";
+import { bestAndWorst, displayAddress, groupSummary, overall, propertyPath } from "../lib/stats";
 
 export default function PropertyCard({ property, highlight }) {
   const reviews = property.reviews || [];
@@ -8,7 +8,7 @@ export default function PropertyCard({ property, highlight }) {
   const { best, worst } = bestAndWorst(reviews);
   const n = reviews.length;
   return (
-    <a className="pcard" href={link(`/property/${property.id}`)}>
+    <a className="pcard" href={link(propertyPath(property))}>
       <div className="pcard-top">
         <div style={{ minWidth: 0 }}>
           <h3>{displayAddress(property)}</h3>

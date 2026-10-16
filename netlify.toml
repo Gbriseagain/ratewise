@@ -10,3 +10,15 @@
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "no-cache"
+
+# The sitemap is built live from the database, so Google always sees every reviewed home.
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "https://epzhgdblwtnejufmdykb.supabase.co/functions/v1/sitemap"
+  status = 200
+
+# Every page address loads the app, which then shows the right page.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

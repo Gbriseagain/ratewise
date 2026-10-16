@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Icon } from "./ui";
 import { go } from "../lib/router";
-import { displayAddress } from "../lib/stats";
+import { displayAddress, propertyPath } from "../lib/stats";
 
 // Search box with live suggestions from homes already on Hindsight.
 export function matches(property, query) {
@@ -25,7 +25,7 @@ export default function SearchBox({ properties = [], initial = "", autoFocus = f
 
   const submit = (e) => {
     e.preventDefault();
-    if (active >= 0 && suggestions[active]) return go(`/property/${suggestions[active].id}`);
+    if (active >= 0 && suggestions[active]) return go(propertyPath(suggestions[active]));
     setOpen(false);
     if (onSearch) onSearch(q.trim());
     else go(`/search?q=${encodeURIComponent(q.trim())}`);
@@ -55,7 +55,7 @@ export default function SearchBox({ properties = [], initial = "", autoFocus = f
         <div className="suggest" role="listbox">
           {suggestions.map((p, i) => (
             <button type="button" key={p.id} role="option" aria-selected={i === active} className={i === active ? "active" : ""}
-              onMouseDown={(e) => e.preventDefault()} onClick={() => go(`/property/${p.id}`)}>
+              onMouseDown={(e) => e.preventDefault()} onClick={() => go(propertyPath(p))}>
               <span>{displayAddress(p)}</span>
               <span className="muted small">{p.postcode}</span>
             </button>

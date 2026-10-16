@@ -1,7 +1,8 @@
 -- =====================================================================
--- Hindsight database setup
--- Paste this whole file into Supabase > SQL Editor > New query > Run.
--- Safe to run more than once.
+-- Hindsight database setup (full schema, safe to run more than once)
+--
+-- The live database was built from this file. It contains no secrets:
+-- the admin key is stored only as a hash, inserted separately.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -27,10 +28,11 @@ create table if not exists public.properties (
                 ) stored,
   constraint properties_unique_address unique (postcode_key, address_key)
 );
-
 create index if not exists properties_postcode_key_idx on public.properties (postcode_key);
 
 -- One row per tenant review. Only 'published' rows are visible to the public.
+-- Reviews waiting for moderation are stored as 'hidden' with
+-- review_private.moderation_status = 'pending'.
 create table if not exists public.reviews (
   id            uuid primary key default gen_random_uuid(),
   property_id   uuid not null references public.properties (id) on delete cascade,
@@ -41,25 +43,28 @@ create table if not exists public.reviews (
   summary       text not null,
   body          text not null,
   scores        jsonb not null,  -- { criterion: 1..5 }
-  explanations  jsonb not null default '{}'::jsonb,  -- required for scores of 3 or below
-  details       jsonb not null default '{}'::jsonb,  -- set-up, deposit, energy upgrades
-  verified      boolean not null default false,      -- you set this after checking proof
+  explanations  jsonb not null default '{}'::jsonb,
+  details       jsonb not null default '{}'::jsonb,
+  verified      boolean not null default false,
   status        text not null default 'published' check (status in ('published', 'hidden')),
   report_count  integer not null default 0
 );
-
 create index if not exists reviews_property_id_idx on public.reviews (property_id);
 create index if not exists reviews_created_at_idx on public.reviews (created_at desc);
 
--- Private verification details. Never readable from the website.
+-- Private details about each review. Never readable from the website.
 create table if not exists public.review_private (
   review_id     uuid primary key references public.reviews (id) on delete cascade,
   created_at    timestamptz not null default now(),
   verify_method text,
   contact_email text
 );
+alter table public.review_private add column if not exists moderation_status text not null default 'approved'
+  check (moderation_status in ('pending', 'approved', 'rejected'));
+alter table public.review_private add column if not exists moderation_note text;
+alter table public.review_private add column if not exists terms_accepted_at timestamptz;
 
--- Reports and complaints about reviews (your notice-and-takedown log).
+-- Complaints about reviews (the notice-and-takedown log).
 create table if not exists public.reports (
   id            uuid primary key default gen_random_uuid(),
   created_at    timestamptz not null default now(),
@@ -70,6 +75,33 @@ create table if not exists public.reports (
   status        text not null default 'open' check (status in ('open', 'actioned', 'rejected'))
 );
 
+-- Right of reply: landlords and agents respond to a review. Approved by the owner.
+create table if not exists public.review_replies (
+  id             uuid primary key default gen_random_uuid(),
+  review_id      uuid not null references public.reviews (id) on delete cascade,
+  created_at     timestamptz not null default now(),
+  responder_name text not null,
+  responder_role text not null check (responder_role in ('Landlord', 'Letting agent', 'Management company')),
+  body           text not null,
+  status         text not null default 'pending' check (status in ('pending', 'published', 'rejected')),
+  published_at   timestamptz
+);
+create index if not exists review_replies_review_id_idx on public.review_replies (review_id);
+
+create table if not exists public.reply_private (
+  reply_id          uuid primary key references public.review_replies (id) on delete cascade,
+  created_at        timestamptz not null default now(),
+  contact_email     text not null,
+  terms_accepted_at timestamptz not null default now()
+);
+
+-- Admin access: only a SHA-256 hash of the admin key is stored.
+create table if not exists public.admin_keys (
+  key_hash   text primary key,
+  created_at timestamptz not null default now(),
+  label      text
+);
+
 -- ---------------------------------------------------------------------
 -- 2. Security: who can read and write what
 -- ---------------------------------------------------------------------
@@ -78,30 +110,70 @@ alter table public.properties     enable row level security;
 alter table public.reviews        enable row level security;
 alter table public.review_private enable row level security;
 alter table public.reports        enable row level security;
+alter table public.review_replies enable row level security;
+alter table public.reply_private  enable row level security;
+alter table public.admin_keys     enable row level security;
 
 drop policy if exists "Public can read properties" on public.properties;
 create policy "Public can read properties"
-  on public.properties for select to anon, authenticated
-  using (true);
+  on public.properties for select to anon, authenticated using (true);
 
 drop policy if exists "Public can read published reviews" on public.reviews;
 create policy "Public can read published reviews"
-  on public.reviews for select to anon, authenticated
-  using (status = 'published');
+  on public.reviews for select to anon, authenticated using (status = 'published');
 
--- No policies on review_private or reports: the website cannot read them.
--- You see them in Supabase > Table Editor.
+drop policy if exists "Public can read published replies" on public.review_replies;
+create policy "Public can read published replies"
+  on public.review_replies for select to anon, authenticated using (status = 'published');
+
+-- No policies on review_private, reports, reply_private or admin_keys:
+-- the website can never read them. Writes only happen through the
+-- functions below, which check everything first.
 
 grant usage on schema public to anon, authenticated;
-revoke all on public.properties, public.reviews, public.review_private, public.reports from anon, authenticated;
-grant select on public.properties, public.reviews to anon, authenticated;
+revoke all on public.properties, public.reviews, public.review_private, public.reports,
+              public.review_replies, public.reply_private, public.admin_keys from anon, authenticated;
+grant select on public.properties, public.reviews, public.review_replies to anon, authenticated;
+
+-- Helpers live in a schema the website cannot reach.
+create schema if not exists hs_private;
+
+-- Returns the reasons a piece of text needs a human check before going live.
+create or replace function hs_private.moderation_flags(t text)
+returns text[]
+language sql
+immutable
+as $$
+  select array_remove(array[
+    case when t ~* '[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}' then 'an email address' end,
+    case when regexp_replace(t, '[\s().-]', '', 'g') ~ '(\+44|0044|0)[1-9][0-9]{8,9}' then 'a phone number' end,
+    case when t ~* '(https?://|www\.|\m[a-z0-9-]+\.(com|co\.uk|org\.uk|org|net|io)\M)' then 'a web link' end,
+    case when t ~* '\m(fuck\w*|shit|shits|shitty|shite|bullshit|cunts?|wank\w*|bastards?|bitch\w*|twats?|pricks?|slags?|whores?|nigger\w*|nigga\w*|paki|faggots?|retard(s|ed)?|spastic|rape|raped|raping|rapists?)\M'
+         then 'strong language' end,
+    case when t ~* '\m(fraud\w*|criminals?|thief|thieves|stole|steal|steals|stealing|scam|scams|scammed|scammers?|liars?|corrupt\w*|crooks?|illegal\w*)\M'
+         then 'a serious allegation' end,
+    case when t ~ '\m(Mr|Mrs|Ms|Miss|Dr)\.?\s+[A-Z][a-z]+' then 'a person''s name' end
+  ], null);
+$$;
+
+create or replace function hs_private.is_admin(p_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_key is not null and length(p_key) >= 32 and exists (
+    select 1 from admin_keys where key_hash = encode(sha256(convert_to(p_key, 'UTF8')), 'hex')
+  );
+$$;
 
 -- ---------------------------------------------------------------------
 -- 3. Submitting a review (all checks happen here, on the server)
 -- ---------------------------------------------------------------------
 
-create or replace function public.submit_review(payload jsonb)
-returns uuid
+create or replace function public.submit_review_v2(payload jsonb)
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
@@ -130,6 +202,8 @@ declare
   v_body     text  := btrim(coalesce(payload ->> 'body', ''));
   v_method   text  := nullif(btrim(coalesce(payload ->> 'verify_method', '')), '');
   v_email    text  := nullif(lower(btrim(coalesce(payload ->> 'contact_email', ''))), '');
+  v_flags    text[];
+  v_pending  boolean;
   v_lat      double precision;
   v_lon      double precision;
   v_property uuid;
@@ -139,7 +213,9 @@ begin
   if coalesce(payload ->> 'website', '') <> '' then
     raise exception 'Submission rejected.';
   end if;
-
+  if coalesce(payload ->> 'agreed_terms', '') <> 'true' then
+    raise exception 'Please agree to the terms of use.';
+  end if;
   -- Flood protection: no more than 60 reviews an hour across the whole site.
   if (select count(*) from reviews where created_at > now() - interval '1 hour') >= 60 then
     raise exception 'Too many reviews are coming in right now. Try again in an hour.';
@@ -203,6 +279,12 @@ begin
     end if;
   end loop;
 
+  -- Anything that could identify people, abuse or defame waits for a human check.
+  v_flags := hs_private.moderation_flags(
+    v_author || ' ' || v_summary || ' ' || v_body || ' ' || v_expls::text || ' ' || v_details::text
+  );
+  v_pending := cardinality(v_flags) > 0;
+
   begin
     v_lat := nullif(payload ->> 'latitude', '')::double precision;
     v_lon := nullif(payload ->> 'longitude', '')::double precision;
@@ -230,19 +312,40 @@ begin
     where property_id = v_property and author_name = v_author and summary = v_summary
       and created_at > now() - interval '10 minutes'
   ) then
-    raise exception 'This review has already been published.';
+    raise exception 'This review has already been sent.';
   end if;
 
-  insert into reviews (property_id, author_name, moved_in, moved_out, summary, body, scores, explanations, details)
-  values (v_property, v_author, v_in, v_out, v_summary, v_body, v_scores, v_expls, v_details)
+  insert into reviews (property_id, author_name, moved_in, moved_out, summary, body, scores, explanations, details, status)
+  values (v_property, v_author, v_in, v_out, v_summary, v_body, v_scores, v_expls, v_details,
+          case when v_pending then 'hidden' else 'published' end)
   returning id into v_review;
 
-  if v_method is not null or v_email is not null then
-    insert into review_private (review_id, verify_method, contact_email)
-    values (v_review, v_method, v_email);
-  end if;
+  insert into review_private (review_id, verify_method, contact_email, moderation_status, moderation_note, terms_accepted_at)
+  values (v_review, v_method, v_email,
+          case when v_pending then 'pending' else 'approved' end,
+          nullif(array_to_string(v_flags, ', '), ''), now());
 
-  return v_property;
+  return jsonb_build_object(
+    'property_id', v_property,
+    'review_id', v_review,
+    'status', case when v_pending then 'pending' else 'published' end,
+    'reasons', to_jsonb(v_flags)
+  );
+end;
+$$;
+
+-- The first version of the site called this. It now goes through the same checks.
+create or replace function public.submit_review(payload jsonb)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(payload ->> 'agreed_terms', '') <> 'true' then
+    raise exception 'Hindsight has been updated. Refresh the page and try again.';
+  end if;
+  return (public.submit_review_v2(payload) ->> 'property_id')::uuid;
 end;
 $$;
 
@@ -279,9 +382,218 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_review(jsonb) from public;
-revoke all on function public.report_review(uuid, text, text, text) from public;
+-- ---------------------------------------------------------------------
+-- 5. Right of reply (always checked by the owner before it goes live)
+-- ---------------------------------------------------------------------
+
+create or replace function public.submit_reply(payload jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_review uuid;
+  v_name   text := btrim(coalesce(payload ->> 'responder_name', ''));
+  v_role   text := btrim(coalesce(payload ->> 'responder_role', ''));
+  v_body   text := btrim(coalesce(payload ->> 'body', ''));
+  v_email  text := lower(btrim(coalesce(payload ->> 'contact_email', '')));
+  v_reply  uuid;
+begin
+  if coalesce(payload ->> 'website', '') <> '' then
+    raise exception 'Submission rejected.';
+  end if;
+  begin
+    v_review := (payload ->> 'review_id')::uuid;
+  exception when others then
+    raise exception 'That review could not be found.';
+  end;
+  if not exists (select 1 from reviews where id = v_review and status = 'published') then
+    raise exception 'That review could not be found.';
+  end if;
+  if coalesce(payload ->> 'agreed_terms', '') <> 'true' then
+    raise exception 'Please agree to the terms of use.';
+  end if;
+  if coalesce(payload ->> 'authorised', '') <> 'true' then
+    raise exception 'Please confirm you are the landlord or agent, or authorised to reply for them.';
+  end if;
+  if v_role not in ('Landlord', 'Letting agent', 'Management company') then
+    raise exception 'Choose who you are replying as.';
+  end if;
+  if length(v_name) < 2 or length(v_name) > 80 then
+    raise exception 'Enter your name or company name (up to 80 characters).';
+  end if;
+  if length(v_body) < 20 or length(v_body) > 1500 then
+    raise exception 'Your reply needs to be between 20 and 1,500 characters.';
+  end if;
+  if length(v_email) > 254 or v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+    raise exception 'Enter an email address so we can confirm who you are.';
+  end if;
+  if (select count(*) from review_replies where created_at > now() - interval '1 hour') >= 30 then
+    raise exception 'Too many replies right now. Try again later.';
+  end if;
+  if exists (
+    select 1 from review_replies rr join reply_private rp on rp.reply_id = rr.id
+    where rr.review_id = v_review and rp.contact_email = v_email and rr.created_at > now() - interval '1 day'
+  ) then
+    raise exception 'You have already sent a reply to this review. We will be in touch by email.';
+  end if;
+
+  insert into review_replies (review_id, responder_name, responder_role, body)
+  values (v_review, v_name, v_role, v_body)
+  returning id into v_reply;
+
+  insert into reply_private (reply_id, contact_email) values (v_reply, v_email);
+
+  return jsonb_build_object('reply_id', v_reply, 'status', 'pending');
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- 6. Admin (owner only, protected by the admin key)
+-- ---------------------------------------------------------------------
+
+create or replace function public.admin_overview(p_key text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not hs_private.is_admin(p_key) then
+    raise exception 'That admin link is not valid.';
+  end if;
+
+  return jsonb_build_object(
+    'pending_reviews', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at), '[]'::jsonb) from (
+        select r.id, r.created_at, r.author_name, r.summary, r.body, r.explanations, r.moved_in, r.moved_out,
+               p.id as property_id, p.flat_number, p.address_line, p.city, p.postcode,
+               rp.moderation_note, rp.verify_method, rp.contact_email
+        from reviews r
+        join properties p on p.id = r.property_id
+        join review_private rp on rp.review_id = r.id
+        where r.status = 'hidden' and rp.moderation_status = 'pending'
+      ) x),
+    'pending_replies', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at), '[]'::jsonb) from (
+        select rr.id, rr.created_at, rr.responder_name, rr.responder_role, rr.body,
+               r.id as review_id, r.summary as review_summary, r.author_name as review_author,
+               p.id as property_id, p.flat_number, p.address_line, p.postcode,
+               rpp.contact_email
+        from review_replies rr
+        join reviews r on r.id = rr.review_id
+        join properties p on p.id = r.property_id
+        left join reply_private rpp on rpp.reply_id = rr.id
+        where rr.status = 'pending'
+      ) x),
+    'open_reports', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at), '[]'::jsonb) from (
+        select rep.id, rep.created_at, rep.reason, rep.details, rep.contact_email,
+               r.id as review_id, r.summary as review_summary, r.author_name as review_author, r.status as review_status,
+               p.id as property_id, p.flat_number, p.address_line, p.postcode
+        from reports rep
+        join reviews r on r.id = rep.review_id
+        join properties p on p.id = r.property_id
+        where rep.status = 'open'
+      ) x),
+    'recent_reviews', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc), '[]'::jsonb) from (
+        select r.id, r.created_at, r.author_name, r.summary, r.verified, r.report_count,
+               p.id as property_id, p.flat_number, p.address_line, p.postcode,
+               rp.verify_method, rp.contact_email
+        from reviews r
+        join properties p on p.id = r.property_id
+        left join review_private rp on rp.review_id = r.id
+        where r.status = 'published'
+        order by r.created_at desc
+        limit 30
+      ) x),
+    'counts', jsonb_build_object(
+      'published_reviews', (select count(*) from reviews where status = 'published'),
+      'homes', (select count(distinct property_id) from reviews where status = 'published'),
+      'published_replies', (select count(*) from review_replies where status = 'published')
+    )
+  );
+end;
+$$;
+
+create or replace function public.admin_review_action(p_key text, p_review_id uuid, p_action text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not hs_private.is_admin(p_key) then
+    raise exception 'That admin link is not valid.';
+  end if;
+  if not exists (select 1 from reviews where id = p_review_id) then
+    raise exception 'Review not found.';
+  end if;
+
+  if p_action = 'publish' then
+    update reviews set status = 'published' where id = p_review_id;
+    insert into review_private (review_id, moderation_status) values (p_review_id, 'approved')
+      on conflict (review_id) do update set moderation_status = 'approved';
+  elsif p_action = 'hide' then
+    update reviews set status = 'hidden' where id = p_review_id;
+    insert into review_private (review_id, moderation_status) values (p_review_id, 'rejected')
+      on conflict (review_id) do update set moderation_status = 'rejected';
+  elsif p_action = 'verify' then
+    update reviews set verified = true where id = p_review_id;
+  elsif p_action = 'unverify' then
+    update reviews set verified = false where id = p_review_id;
+  else
+    raise exception 'Unknown action.';
+  end if;
+end;
+$$;
+
+create or replace function public.admin_reply_action(p_key text, p_reply_id uuid, p_action text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not hs_private.is_admin(p_key) then
+    raise exception 'That admin link is not valid.';
+  end if;
+  if p_action = 'publish' then
+    update review_replies set status = 'published', published_at = now() where id = p_reply_id;
+  elsif p_action = 'reject' then
+    update review_replies set status = 'rejected', published_at = null where id = p_reply_id;
+  else
+    raise exception 'Unknown action.';
+  end if;
+end;
+$$;
+
+create or replace function public.admin_report_action(p_key text, p_report_id uuid, p_action text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not hs_private.is_admin(p_key) then
+    raise exception 'That admin link is not valid.';
+  end if;
+  if p_action not in ('actioned', 'rejected') then
+    raise exception 'Unknown action.';
+  end if;
+  update reports set status = p_action where id = p_report_id;
+end;
+$$;
+
+grant execute on function public.submit_review_v2(jsonb) to anon, authenticated;
 grant execute on function public.submit_review(jsonb) to anon, authenticated;
 grant execute on function public.report_review(uuid, text, text, text) to anon, authenticated;
+grant execute on function public.submit_reply(jsonb) to anon, authenticated;
+grant execute on function public.admin_overview(text) to anon, authenticated;
+grant execute on function public.admin_review_action(text, uuid, text) to anon, authenticated;
+grant execute on function public.admin_reply_action(text, uuid, text) to anon, authenticated;
+grant execute on function public.admin_report_action(text, uuid, text) to anon, authenticated;
 
--- Done. You should see "Success. No rows returned".
+-- Done.

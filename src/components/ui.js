@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { bandColour, fmt } from "../lib/stats";
 
 // ---------- Icons (inline, no icon library needed) ----------
@@ -152,7 +153,8 @@ export function Sheet({ title, onClose, children }) {
       document.body.style.overflow = "";
     };
   }, [onClose]);
-  return (
+  // Rendered at the end of the page so it always sits above everything else.
+  return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="spread" style={{ marginBottom: 14 }}>
@@ -161,7 +163,8 @@ export function Sheet({ title, onClose, children }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
