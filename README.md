@@ -14,18 +14,30 @@ Unfiltered reviews from real UK tenants. Live at https://hindsight-reviews.netli
 
 ## Running the site day to day
 
-Use your private admin link (`/admin#k=...`, kept out of this public code). It lists:
+**Claude is the reviewer.** A scheduled task runs twice a day (about 7:54 and 17:54 UK time). It reads every new review,
+landlord reply and report through the Supabase connection, using only the functions in `hs_private`
+(`review_queue`, `decide_review`, `decide_reply`, `decide_report`). Clear cases are decided; anything legally
+risky or borderline is hidden or flagged for the owner. Every decision is logged in `hs_private.moderation_log`.
+The run's summary is emailed to the owner. Claude never sees email addresses or proof of address.
 
-- **Reviews waiting for approval.** Reviews mentioning contact details, a person's name, strong language or
-  serious allegations are held automatically. Publish or reject them.
-- **Landlord and agent replies.** Every reply waits for approval. Check the sender is connected to the property first.
-- **Reports.** Hide the review or keep it up. Act within 48 hours.
-- **Recent reviews.** Mark a review verified once you have seen proof the writer lived there.
+The owner's private admin link (`/admin#k=...`, kept out of this public code) shows:
+
+- **Reviews for you to decide.** Held reviews, and anything Claude escalated or flagged, with Claude's note.
+- **Proof to check.** Photos or PDFs reviewers sent. Verify gives the Verified tenant badge; either button erases the file.
+- **Landlord and agent replies, and reports.** Decide within 48 hours.
+- **What Claude decided.** Every decision with its reason, and a button to undo it.
 
 Email alerts arrive through Netlify Forms (forms: `contact`, `review-report`, `new-review`, `new-reply`).
 Set the destination in Netlify > Forms > Form notifications.
 
 If the admin link is ever lost or leaked, replace its hash in the `admin_keys` table.
+
+### Rules the site enforces
+
+- Scores of 1 or 2 need a written reason. 3 and above do not.
+- Every reviewer must confirm they lived at the address (`lived_there`). Proof is optional and earns the badge.
+- Proof files live in `hs_private.evidence`, are only readable through the admin key, and are erased once checked
+  or after 30 days.
 
 ## Search engines
 

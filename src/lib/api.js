@@ -55,9 +55,18 @@ export async function fetchPropertiesAtPostcode(postcode) {
   return data || [];
 }
 
-// Returns { property_id, review_id, status: "published" | "pending", reasons: [] }.
+// Returns { property_id, review_id, status: "published" | "pending", reasons: [], evidence_token }.
 export async function submitReview(payload) {
   const { data, error } = await supabase.rpc("submit_review_v2", { payload });
+  if (error) throw friendly(error);
+  return data;
+}
+
+// Sends proof of address prepared by prepareProof() in lib/proof.js.
+export async function addEvidence(reviewId, token, proof) {
+  const { data, error } = await supabase.rpc("add_evidence", {
+    p_review_id: reviewId, p_token: token, p_mime: proof.mime, p_data: proof.base64,
+  });
   if (error) throw friendly(error);
   return data;
 }
@@ -86,9 +95,18 @@ export async function adminOverview(key) {
   return data;
 }
 
+// Returns { mime, data } where data is base64.
+export async function adminEvidence(key, reviewId) {
+  const { data, error } = await supabase.rpc("admin_evidence", { p_key: key, p_review_id: reviewId });
+  if (error) throw friendly(error);
+  return data;
+}
+
 export async function adminAction(kind, key, id, action) {
-  const fn = { review: "admin_review_action", reply: "admin_reply_action", report: "admin_report_action" }[kind];
-  const idParam = { review: "p_review_id", reply: "p_reply_id", report: "p_report_id" }[kind];
+  const fn = {
+    review: "admin_review_action", reply: "admin_reply_action", report: "admin_report_action", evidence: "admin_evidence_action",
+  }[kind];
+  const idParam = { review: "p_review_id", reply: "p_reply_id", report: "p_report_id", evidence: "p_review_id" }[kind];
   const { error } = await supabase.rpc(fn, { p_key: key, [idParam]: id, p_action: action });
   if (error) throw friendly(error);
 }

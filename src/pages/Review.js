@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChoiceChips, Icon, ScoreRing, buzz, shareLink, useToast } from "../components/ui";
+import { ProofPicker, ProofSender } from "../components/ProofUpload";
 import { fetchProperty, fetchPropertiesAtPostcode, submitReview } from "../lib/api";
 import { sendForm } from "../lib/notify";
+import { rememberReview } from "../lib/mine";
+import { PROOF_HELP } from "../lib/proof";
 import { SITE_URL } from "../config";
 import { findAddresses, lookupPostcode, normalisePostcode } from "../lib/address";
 import {
   CRITERIA, CRITERION, DETAILS, GROUPS, PROPERTY_TYPES, RETROFIT, RETROFIT_WORKS, SCORE_WORDS, VERIFY_METHODS,
 } from "../lib/criteria";
-import { go, link } from "../lib/router";
+import { link } from "../lib/router";
 import { displayAddress, monthLabel } from "../lib/stats";
 
 const DRAFT_KEY = "hindsight-review-draft-v1";
@@ -37,7 +40,7 @@ const EMPTY = {
 const STEPS = [
   { id: "home", label: "The home" },
   { id: "tenancy", label: "Your tenancy" },
-  { id: "proof", label: "Proof you lived there" },
+  { id: "proof", label: "Confirm you lived there" },
   { id: "setup", label: "The set-up" },
   { id: "energy", label: "Energy upgrades" },
   ...CRITERIA.map((c) => ({ id: `rate:${c.key}`, key: c.key, label: GROUPS[c.group].label })),
@@ -236,7 +239,7 @@ function Questions({ fields, values, onChange }) {
         ) : (
           <ChoiceChips options={f.options} value={values[f.key] || ""} onChange={(v) => onChange(f.key, v)} />
         )}
-        {f.link && <a className="tiny" href={f.link.href} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 8 }}>{f.link.text}</a>}
+        {f.link && <a className="small text-link" href={f.link.href} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 8 }}>{f.link.text}</a>}
       </div>
     );
   });
@@ -245,15 +248,15 @@ function Questions({ fields, values, onChange }) {
 // ---------- One rating screen ----------
 function RateStep({ c, draft, setScore, setExplanation, toggleComment }) {
   const score = draft.scores[c.key];
-  const needs = score && score <= 3;
-  const commentOpen = needs || draft.comment_open[c.key];
+  const needs = score && score <= 2;
+  const commentOpen = needs || draft.comment_open[c.key] || !!(draft.explanations[c.key] || "").trim();
   return (
     <div>
       <p className="rate-group">{GROUPS[c.group].label}</p>
       <div className="rate-icon" aria-hidden="true">{c.icon}</div>
       <h2>{c.question}</h2>
       {c.hint && <p className="muted">{c.hint}</p>}
-      {c.link && <a className="small" href={c.link.href} target="_blank" rel="noopener noreferrer">{c.link.text}</a>}
+      {c.link && <a className="small text-link" href={c.link.href} target="_blank" rel="noopener noreferrer">{c.link.text}</a>}
       <div className="rate-scale" role="radiogroup" aria-label={c.question}>
         {[1, 2, 3, 4, 5].map((v) => (
           <button type="button" key={v} data-v={v} role="radio" aria-checked={score === v}
@@ -274,7 +277,7 @@ function RateStep({ c, draft, setScore, setExplanation, toggleComment }) {
             <textarea className="input" rows={3} autoFocus maxLength={600} value={draft.explanations[c.key] || ""}
               placeholder={needs ? "Be specific: what, how often, and what the landlord did about it." : ""}
               onChange={(e) => setExplanation(c.key, e.target.value)} />
-            {needs && <small>Required for scores of 3 or below, so the next tenant knows why.</small>}
+            {needs && <small>Required for scores of 1 or 2, so the next tenant knows why.</small>}
           </label>
         </div>
       ) : score ? (
@@ -298,6 +301,8 @@ export default function Review({ route, onPublished }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [done, setDone] = useState(null);
+  // A chosen proof file lives here only, never in the saved draft.
+  const [proof, setProof] = useState(null);
   const advanceTimer = useRef(null);
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
@@ -343,7 +348,7 @@ export default function Review({ route, onPublished }) {
       case "setup": case "energy": case "check": return true;
       default: {
         const s = d.scores[current.key];
-        return !!s && (s > 3 || (d.explanations[current.key] || "").trim().length >= 5);
+        return !!s && (s > 2 || (d.explanations[current.key] || "").trim().length >= 5);
       }
     }
   }, [draft, current]);
@@ -360,10 +365,11 @@ export default function Review({ route, onPublished }) {
     buzz(10);
     clearTimeout(advanceTimer.current);
     setDraft((d) => ({ ...d, scores: { ...d.scores, [key]: v } }));
-    // Good scores move straight on; low scores wait for an explanation.
-    if (v >= 4) {
+    // Okay and good scores move straight on; 1 and 2 wait for an explanation.
+    if (v >= 3) {
       advanceTimer.current = setTimeout(() => {
-        if (draftRef.current.comment_open[key]) return;
+        const d = draftRef.current;
+        if (d.comment_open[key] || (d.explanations[key] || "").trim()) return;
         setDir("fwd");
         setStep((s) => (STEPS[s].key === key ? Math.min(STEPS.length - 1, s + 1) : s));
         window.scrollTo({ top: 0 });
@@ -405,8 +411,9 @@ export default function Review({ route, onPublished }) {
         author_name: draft.author_name.trim(), moved_in: draft.moved_in, moved_out: draft.moved_out,
         summary: draft.summary.trim(), body: draft.body.trim(), scores: draft.scores, explanations, details,
         verify_method: draft.verify_method, contact_email: draft.contact_email.trim(), website: draft.website,
-        agreed_terms: draft.agreed_terms,
+        agreed_terms: draft.agreed_terms, lived_there: draft.confirmed,
       });
+      rememberReview(result.review_id, result.evidence_token);
       const title = [draft.flat_number.trim(), addressLine(draft)].filter(Boolean).join(", ");
       const pending = result.status === "pending";
       // Private email alert to the owner. Contains no secrets.
@@ -418,7 +425,11 @@ export default function Review({ route, onPublished }) {
         subject: pending ? `Hindsight: review waiting for approval at ${title}` : `Hindsight: new review published at ${title}`,
       }).catch(() => {});
       clearDraft();
-      setDone({ propertyId: result.property_id, title, pending, reasons: result.reasons || [] });
+      setDone({
+        propertyId: result.property_id, reviewId: result.review_id, token: result.evidence_token,
+        title, pending, reasons: result.reasons || [], proof,
+      });
+      setProof(null);
       if (onPublished) onPublished();
       window.scrollTo({ top: 0 });
     } catch (e) {
@@ -433,6 +444,7 @@ export default function Review({ route, onPublished }) {
     setDraft({ ...EMPTY });
     setStep(0);
     setShowRestored(false);
+    setProof(null);
   };
 
   if (done) {
@@ -444,10 +456,14 @@ export default function Review({ route, onPublished }) {
         </h1>
         <p className="muted" style={{ margin: "12px auto 24px" }}>
           {done.pending
-            ? `It mentions ${done.reasons.join(" and ")}, so a person will read it before it goes live, usually within 48 hours.`
+            ? `It mentions ${done.reasons.join(" and ")}, so we will check it before it goes live, usually within 12 hours.`
             : `The next person looking at ${done.title} will see it.`}
-          {" "}If you added an email, we may contact you for a photo of a bill so we can mark it verified.
         </p>
+        {done.reviewId && done.token && (
+          <div style={{ textAlign: "left", margin: "0 auto 24px", maxWidth: 520 }}>
+            <ProofSender reviewId={done.reviewId} token={done.token} initial={done.proof} />
+          </div>
+        )}
         <div className="row" style={{ justifyContent: "center" }}>
           {done.pending
             ? <a className="btn btn-primary" href={link("/")}>Back to Hindsight</a>
@@ -524,30 +540,41 @@ export default function Review({ route, onPublished }) {
 
           {current.id === "proof" && (
             <div className="stack">
-              <h2>Show you lived there</h2>
-              <p className="muted">Reviews from real tenants are what make Hindsight useful. How could you prove you lived at this address?</p>
-              <div className="addr-list" style={{ maxHeight: "none" }}>
-                {VERIFY_METHODS.map((m) => (
-                  <button type="button" key={m.value} className={`addr-item${draft.verify_method === m.value ? " on" : ""}`}
-                    onClick={() => { buzz(); patch({ verify_method: m.value }); }}>
-                    {m.label}{draft.verify_method === m.value && <Icon name="check" size={18} />}
-                  </button>
-                ))}
-              </div>
-              <label className="field"><span>Email for verification (optional)</span>
-                <input className="input" type="email" value={draft.contact_email} autoComplete="email" placeholder="you@example.com"
-                  onChange={(e) => patch({ contact_email: e.target.value })} />
-                <small>We may email you once to ask for a photo of a bill or council tax letter, then mark your review verified. Never shown publicly.</small>
-              </label>
-              <button type="button" className={`check${draft.confirmed ? " on" : ""}`} aria-pressed={draft.confirmed}
+              <h2>Confirm you lived there</h2>
+              <p className="muted">Hindsight only works if every review comes from someone who actually rented the home.</p>
+              <button type="button" className={`check check-strong${draft.confirmed ? " on" : ""}`} aria-pressed={draft.confirmed}
                 onClick={() => { buzz(); patch({ confirmed: !draft.confirmed }); }}>
                 <span className="check-box">{draft.confirmed && <Icon name="check" size={14} stroke={3} />}</span>
-                <span className="small">
-                  I lived at <strong>{[draft.flat_number, addressLine(draft)].filter(Boolean).join(", ") || "this address"}, {draft.postcode}</strong> from{" "}
-                  <strong>{monthLabel(draft.moved_in) || "move-in"}</strong> to <strong>{monthLabel(draft.moved_out) || "move-out"}</strong>,
-                  and this review is my own honest experience.
+                <span>
+                  I confirm I lived at <strong>{[draft.flat_number, addressLine(draft)].filter(Boolean).join(", ") || "this address"}, {draft.postcode}</strong> as
+                  a tenant from <strong>{monthLabel(draft.moved_in) || "move-in"}</strong> to <strong>{monthLabel(draft.moved_out) || "move-out"}</strong>,
+                  and this review is my own experience.
                 </span>
               </button>
+              <div className="qgroup">
+                <p>Which of these was in your name at this address?</p>
+                <div className="addr-list" style={{ maxHeight: "none" }}>
+                  {VERIFY_METHODS.map((m) => (
+                    <button type="button" key={m.value} className={`addr-item${draft.verify_method === m.value ? " on" : ""}`}
+                      onClick={() => { buzz(); patch({ verify_method: m.value }); }}>
+                      {m.label}{draft.verify_method === m.value && <Icon name="check" size={18} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="proof-box">
+                <p className="proof-title"><Icon name="shield" size={18} /> Get the Verified tenant badge <span className="tag info">Recommended</span></p>
+                <p className="small muted">{PROOF_HELP}</p>
+                <div style={{ marginTop: 12 }}><ProofPicker value={proof} onChange={setProof} /></div>
+                <p className="tiny muted" style={{ marginTop: 10 }}>
+                  {proof ? "It is sent when you publish." : "Optional. You can also add it after publishing, from this device, within 30 days."}
+                </p>
+              </div>
+              <label className="field"><span>Email (optional, never shown)</span>
+                <input className="input" type="email" value={draft.contact_email} autoComplete="email" placeholder="you@example.com"
+                  onChange={(e) => patch({ contact_email: e.target.value })} />
+                <small>Only used if someone disputes your review, so you can respond before we decide anything.</small>
+              </label>
             </div>
           )}
 
@@ -629,7 +656,7 @@ export default function Review({ route, onPublished }) {
               )}
               {contactWarning.length > 0 && (
                 <p className="note info">
-                  Your review mentions what looks like {contactWarning.join(" and ")}. Reviews like this wait for a person to check them.
+                  Your review mentions what looks like {contactWarning.join(" and ")}. Reviews like this are checked before they go live.
                   Remove it to publish straight away.
                 </p>
               )}
@@ -642,7 +669,8 @@ export default function Review({ route, onPublished }) {
                 </span>
               </button>
               <p className="small muted">
-                Most reviews go live straight away. Anyone can report a review, and we act on reports within 48 hours.
+                Most reviews go live straight away, and every review is checked within about 12 hours.
+                Anyone can report a review, and we act on reports within 48 hours.
                 See <a href={link("/privacy")}>privacy and complaints</a>.
               </p>
               {sendError && <p className="note bad">{sendError}</p>}
@@ -663,8 +691,9 @@ export default function Review({ route, onPublished }) {
         )}
 
         {step === 0 && (
-          <p className="tiny muted" style={{ marginTop: 22 }}>
-            About five minutes. Your progress saves on this device as you go. <button type="button" className="btn-quiet tiny" style={{ padding: 0, minHeight: 0 }} onClick={() => go("/about")}>Why we ask what we ask</button>
+          <p className="small muted" style={{ marginTop: 22 }}>
+            About five minutes. Your progress saves on this device as you go.{" "}
+            <a className="text-link" href={link("/about")}>Why we ask what we ask</a>
           </p>
         )}
       </div>

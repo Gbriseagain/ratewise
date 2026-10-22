@@ -81,6 +81,13 @@ body {
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; }
 a { color: inherit; }
+/* Links inside text are blue and underlined, so nobody mistakes them for plain text. */
+.text-link, .prose a:not(.btn), .flow a:not(.btn):not(.chip), .note a, .check a, .qgroup a, .panel p a:not(.btn) {
+  color: var(--info); text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; font-weight: 600;
+}
+.text-link:hover, .prose a:not(.btn):hover, .flow a:not(.btn):not(.chip):hover, .note a:hover, .check a:hover, .qgroup a:hover, .panel p a:not(.btn):hover {
+  text-decoration-thickness: 2.5px;
+}
 img, svg { display: block; }
 :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
 ::selection { background: var(--amber-soft); }
@@ -241,7 +248,7 @@ textarea.input { resize: vertical; line-height: 1.6; }
 .meter-row.tappable { cursor: pointer; }
 .meter-row.tappable:hover .meter-label { color: var(--strong); }
 .meter-label { font-size: 0.9rem; color: var(--muted); display: flex; align-items: center; gap: 8px; min-width: 0; }
-.meter-label span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meter-label span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .meter-track { height: 22px; position: relative; }
 .meter-bar {
   height: 100%; width: 0; min-width: 22px;
@@ -249,6 +256,10 @@ textarea.input { resize: vertical; line-height: 1.6; }
   transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .meter-value { font-family: var(--serif); font-weight: 700; color: var(--strong); text-align: right; }
+.said-count {
+  flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center;
+  background: var(--info-soft); color: var(--info); font-size: 0.72rem; font-weight: 700;
+}
 .meter-more { grid-column: 1 / -1; margin: 4px 0 10px; padding: 12px 14px; border-radius: var(--r-md); background: var(--panel-2); animation: page-in 0.2s ease both; }
 .meter-more blockquote { font-size: 0.92rem; padding-left: 12px; border-left: 3px solid var(--line); margin: 8px 0; }
 .meter-more cite { display: block; font-style: normal; color: var(--muted); font-size: 0.78rem; margin-top: 2px; }
@@ -343,6 +354,24 @@ textarea.input { resize: vertical; line-height: 1.6; }
 }
 .check-box { width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; border: 2px solid var(--muted); display: grid; place-items: center; margin-top: 2px; }
 .check.on .check-box { background: var(--amber); border-color: var(--amber); color: var(--on-amber); }
+.check-strong { padding: 18px; border-width: 2px; font-size: 1rem; color: var(--text); }
+.check-strong strong { color: var(--strong); }
+.check-strong.on { border-color: var(--amber); background: var(--amber-soft); }
+
+/* ---------- Proof of address ---------- */
+.proof-box { border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; background: var(--panel); }
+.proof-box.sent { border-color: var(--good); background: var(--good-soft); }
+.proof-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: 600; color: var(--strong); margin-bottom: 6px; }
+.proof-box.sent .proof-title { color: var(--good); }
+.proof-choose { cursor: pointer; position: relative; }
+.proof-choose:focus-within { outline: 2px solid var(--amber); outline-offset: 2px; }
+.proof-choose.is-busy { opacity: 0.6; pointer-events: none; }
+.proof-file { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r-md); background: var(--panel-2); }
+.proof-file img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.proof-pdf { width: 56px; height: 56px; border-radius: 8px; flex-shrink: 0; display: grid; place-items: center; background: var(--bad-soft); color: var(--bad); font-weight: 700; font-size: 0.8rem; }
+.proof-name { color: var(--strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proof-view { margin-top: 12px; max-width: 100%; max-height: 70vh; border-radius: var(--r-md); border: 1px solid var(--line); background: #fff; }
+.proof-frame { margin-top: 12px; width: 100%; height: 70vh; border: 1px solid var(--line); border-radius: var(--r-md); background: #fff; }
 
 .qgroup + .qgroup { margin-top: 22px; }
 .qgroup > p { font-weight: 500; color: var(--strong); margin-bottom: 10px; }

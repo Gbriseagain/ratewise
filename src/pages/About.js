@@ -32,9 +32,9 @@ export function About() {
         <h2>The rules</h2>
         <ul>
           <li><strong>Only after moving out.</strong> Reviews open once your tenancy has ended, so nobody writes in fear of their landlord.</li>
-          <li><strong>Low scores need a reason.</strong> Any score of 3 or below needs a written explanation. That is what makes a score useful.</li>
-          <li><strong>Tenants confirm they lived there.</strong> Each reviewer declares how they could prove it. Reviews show as verified once we have checked a bill or council tax letter.</li>
-          <li><strong>Risky reviews are checked first.</strong> Reviews that mention names, contact details, strong language or serious allegations wait for a person to read them.</li>
+          <li><strong>Low scores need a reason.</strong> A score of 1 or 2 needs a written explanation. That is what makes a low score useful.</li>
+          <li><strong>Tenants confirm they lived there.</strong> Every reviewer confirms it. Those who send a council tax bill, utility bill or poll card get the Verified tenant badge once we have checked it.</li>
+          <li><strong>Every review is checked.</strong> Reviews that mention names, contact details, strong language or serious allegations wait until they have been checked. The rest go live straight away and are checked within about 12 hours.</li>
           <li><strong>Anyone can report a review.</strong> Landlords and agents included. We look at every report within 48 hours.</li>
           <li><strong>Landlords and agents can reply.</strong> Each reply is checked before it appears under the review it answers.</li>
         </ul>
@@ -67,16 +67,17 @@ export function Privacy() {
         <h2>What we collect</h2>
         <ul>
           <li><strong>Published with your review:</strong> the name or initials you give, the months you moved in and out, your scores, comments and answers about the home.</li>
-          <li><strong>Kept private:</strong> how you said you could prove you lived there, your email address if you chose to give one, and when you agreed to the terms of use.</li>
+          <li><strong>Kept private:</strong> which document was in your name at the address, your email address if you chose to give one, and when you agreed to the terms of use.</li>
+          <li><strong>Proof of address, if you send it:</strong> a photo or PDF of a bill or poll card. Only the person who runs Hindsight sees it. It is deleted as soon as it has been checked, or after 30 days. Photos are re-saved on your device before they are sent, which removes hidden details such as where the photo was taken.</li>
           <li><strong>Landlord and agent replies:</strong> the name, role and reply are published once approved. The email address is kept private and only used to confirm who sent it.</li>
-          <li><strong>On your device only:</strong> an unfinished review and your colour theme, so you can pick up where you left off.</li>
+          <li><strong>On your device only:</strong> an unfinished review, your colour theme, and a code that lets you add proof to your own review later.</li>
         </ul>
         <p>We do not use advertising trackers and we do not sell data.</p>
 
         <h2>Why</h2>
         <p>
           Publishing reviews helps other renters make informed decisions, which is the legitimate interest Hindsight relies on.
-          Your email is optional and only used to verify your review or reply to your report.
+          Your email is optional. We only use it to contact you if someone disputes your review, or to reply to your report.
         </p>
 
         <h2>Who processes it</h2>
@@ -85,6 +86,8 @@ export function Privacy() {
           suggestions and maps come from OpenStreetMap; those services see the postcode or map area you look at, nothing else.
           If you use "Near me" on the map, your location stays on your device and is only used to centre the map.
           Messages from the contact form and alerts about new reviews are delivered by Netlify.
+          New reviews, replies and reports are checked with help from Claude, an AI assistant made by Anthropic. It reads the text of reviews,
+          replies and reports, never email addresses or proof of address, and the person who runs Hindsight makes the final call on complaints.
         </p>
 
         <h2>Your rights</h2>

@@ -9,12 +9,6 @@ import { displayAddress, overall, propertyPath } from "../lib/stats";
 
 const PREVIEW_KEYS = ["damp", "heating", "epc_reality", "noise", "landlord", "maintenance"];
 
-// Shown only until the first real review exists. Clearly labelled as an example.
-const EXAMPLE = [
-  { id: "x1", scores: { damp: 2, heating: 2, epc_reality: 1, noise: 4, landlord: 3, maintenance: 2 } },
-  { id: "x2", scores: { damp: 1, heating: 3, epc_reality: 2, noise: 4, landlord: 2, maintenance: 1 } },
-];
-
 export function ShareInvite() {
   const toast = useToast();
   const url = SITE_URL;
@@ -38,7 +32,6 @@ export function ShareInvite() {
 
 export default function Home({ properties, loading, error }) {
   const latest = properties[0];
-  const previewReviews = latest ? latest.reviews : EXAMPLE;
   const reviewCount = properties.reduce((s, p) => s + p.reviews.length, 0);
 
   return (
@@ -67,23 +60,31 @@ export default function Home({ properties, loading, error }) {
             )}
           </div>
 
-          <a className="panel" href={latest ? link(propertyPath(latest)) : link("/review")}
-            style={{ textDecoration: "none", display: "block", boxShadow: "var(--shadow)" }}>
-            <div className="spread" style={{ marginBottom: 18 }}>
-              <div>
-                <span className={`tag ${latest ? "amber" : "info"}`}>{latest ? "Latest review" : "Example report"}</span>
-                <h3 style={{ marginTop: 10 }}>{latest ? displayAddress(latest) : "2-bed flat, Bristol"}</h3>
-                <p className="muted small">
-                  {latest ? [latest.area, latest.city].filter(Boolean).join(", ") : "How a report reads once tenants have scored a home"}
-                </p>
+          {latest ? (
+            <a className="panel" href={link(propertyPath(latest))}
+              style={{ textDecoration: "none", display: "block", boxShadow: "var(--shadow)" }}>
+              <div className="spread" style={{ marginBottom: 18 }}>
+                <div>
+                  <span className="tag amber">Latest review</span>
+                  <h3 style={{ marginTop: 10 }}>{displayAddress(latest)}</h3>
+                  <p className="muted small">{[latest.area, latest.city].filter(Boolean).join(", ")}</p>
+                </div>
+                <ScoreRing score={overall(latest.reviews)} size={64} />
               </div>
-              <ScoreRing score={overall(previewReviews)} size={64} />
-            </div>
-            <Meter reviews={previewReviews} keys={PREVIEW_KEYS} />
-            <p className="small" style={{ marginTop: 16, color: "var(--amber-text)", fontWeight: 600 }}>
-              {latest ? "Open the full report" : "Leave the first real review"}
-            </p>
-          </a>
+              <Meter reviews={latest.reviews} keys={PREVIEW_KEYS} />
+              <p className="small" style={{ marginTop: 16, color: "var(--amber-text)", fontWeight: 600 }}>Open the full report</p>
+            </a>
+          ) : (
+            <a className="panel" href={link("/review")}
+              style={{ textDecoration: "none", display: "block", boxShadow: "var(--shadow)" }}>
+              <span className="tag amber">Be the first</span>
+              <h3 style={{ marginTop: 10 }}>Reviews appear here as tenants write them</h3>
+              <p className="muted small" style={{ marginTop: 8 }}>
+                Every review on Hindsight is written by someone who rented the home. Review the last place you lived and it shows here first.
+              </p>
+              <p className="small" style={{ marginTop: 16, color: "var(--amber-text)", fontWeight: 600 }}>Leave a review</p>
+            </a>
+          )}
         </section>
 
         <section className="section">

@@ -17,6 +17,8 @@ const PATHS = {
   pin: "M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
   bolt: "M13 2 4 14h7l-1 8 9-12h-7z",
   chevron: "M6 9l6 6 6-6",
+  upload: "M12 16V4m0 0L8 8m4-4 4 4M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5",
+  shield: "M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6zm-3 9 2 2 4-4",
 };
 
 export function Icon({ name, size = 20, stroke = 2, className }) {

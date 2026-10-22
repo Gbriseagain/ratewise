@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Meter from "../components/Meter";
+import Meter, { hasComments } from "../components/Meter";
 import { ChoiceChips, Icon, ScoreRing, Sheet, buzz, shareLink, useToast } from "../components/ui";
+import { ProofSender } from "../components/ProofUpload";
 import { SITE_URL } from "../config";
 import { fetchProperty, reportReview, submitReply } from "../lib/api";
 import { sendForm } from "../lib/notify";
+import { myReview } from "../lib/mine";
 import { CRITERIA, DETAILS, GROUPS, REPORT_REASONS } from "../lib/criteria";
 import { go, link, setAddress } from "../lib/router";
 import { useSeo } from "../lib/seo";
@@ -132,9 +134,21 @@ function ReportSheet({ review, propertyLabel, onClose }) {
   );
 }
 
-function ReviewItem({ review, onReport, onReply }) {
+function ProofSheet({ review, onClose }) {
+  const mine = myReview(review.id);
+  return (
+    <Sheet title="Get the Verified tenant badge" onClose={onClose}>
+      {mine ? <ProofSender reviewId={review.id} token={mine.token} compact /> : <p className="muted">This only works on the device you wrote the review on.</p>}
+    </Sheet>
+  );
+}
+
+function ReviewItem({ review, onReport, onReply, onProof }) {
+  const mine = myReview(review.id);
   const replies = [...(review.review_replies || [])].sort((a, b) => new Date(a.published_at || a.created_at) - new Date(b.published_at || b.created_at));
-  const low = CRITERIA.filter((c) => review.scores[c.key] <= 3 && review.explanations && review.explanations[c.key]);
+  // Every comment the tenant wrote, lowest scores first.
+  const low = CRITERIA.filter((c) => review.explanations && (review.explanations[c.key] || "").trim())
+    .sort((a, b) => review.scores[a.key] - review.scores[b.key]);
   const d = review.details || {};
   return (
     <article className="review">
@@ -147,6 +161,7 @@ function ReviewItem({ review, onReport, onReply }) {
               {review.verified
                 ? <span className="tag good"><Icon name="check" size={12} stroke={3} /> Verified tenant</span>
                 : <span className="tag">Not yet verified</span>}
+              {mine && <span className="tag info">Your review</span>}
             </div>
             <p className="tiny muted">Lived here {monthLabel(review.moved_in)} to {monthLabel(review.moved_out)}</p>
           </div>
@@ -180,6 +195,18 @@ function ReviewItem({ review, onReport, onReply }) {
           </p>
         </div>
       ))}
+      {mine && !review.verified && (
+        <div className="note info spread" style={{ marginTop: 14 }}>
+          <span className="small">
+            {mine.proof === "sent" ? "Your proof is with us. The badge appears once it has been checked." : "Add a bill or poll card to get the Verified tenant badge."}
+          </span>
+          {mine.proof !== "sent" && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onProof(review)}>
+              <Icon name="upload" size={16} /> Add proof
+            </button>
+          )}
+        </div>
+      )}
       <div className="row" style={{ marginTop: 10 }}>
         <span className="tiny muted">Posted {new Date(review.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
         <button type="button" className="btn-quiet tiny row" style={{ gap: 4, minHeight: 32 }} onClick={() => onReply(review)}>
@@ -209,7 +236,9 @@ export default function Property({ id }) {
   const [group, setGroup] = useState("all");
   const [reporting, setReporting] = useState(null);
   const [replying, setReplying] = useState(null);
+  const [proving, setProving] = useState(null);
   const closeReport = useCallback(() => setReporting(null), []);
+  const closeProof = useCallback(() => setProving(null), []);
   const closeReply = useCallback(() => setReplying(null), []);
 
   useEffect(() => {
@@ -316,7 +345,9 @@ export default function Property({ id }) {
                 ))}
               </div>
             </div>
-            <p className="tiny muted" style={{ marginBottom: 12 }}>Tap a score to read what tenants said.</p>
+            {hasComments(reviews, keys) && (
+              <p className="tiny muted" style={{ marginBottom: 12 }}>Scores with a number beside them have tenant comments. Tap to read them.</p>
+            )}
             <Meter key={group} reviews={reviews} keys={keys} expandable />
           </section>
 
@@ -375,7 +406,7 @@ export default function Property({ id }) {
                   </>
                 )}
                 <p className="tiny muted" style={{ marginTop: 12 }}>
-                  Check the official certificate on <a href="https://www.gov.uk/find-energy-certificate" target="_blank" rel="noopener noreferrer">GOV.UK</a>.
+                  Check the official certificate on <a className="text-link" href="https://www.gov.uk/find-energy-certificate" target="_blank" rel="noopener noreferrer">GOV.UK</a>.
                 </p>
               </section>
             )}
@@ -396,7 +427,7 @@ export default function Property({ id }) {
 
             <p className="small muted">
               Mobile signal scored {fmt(avg(reviews, "mobile_signal"))}.{" "}
-              <a href="https://www.ofcom.org.uk/mobile-coverage-checker" target="_blank" rel="noopener noreferrer">Check coverage on Ofcom</a>.
+              <a className="text-link" href="https://www.ofcom.org.uk/mobile-coverage-checker" target="_blank" rel="noopener noreferrer">Check coverage on Ofcom</a>.
             </p>
           </div>
         </div>
@@ -404,11 +435,12 @@ export default function Property({ id }) {
         <section className="section">
           <h2>{reviews.length} {reviews.length === 1 ? "review" : "reviews"}</h2>
           <div style={{ marginTop: 8 }}>
-            {reviews.map((r) => <ReviewItem key={r.id} review={r} onReport={setReporting} onReply={setReplying} />)}
+            {reviews.map((r) => <ReviewItem key={r.id} review={r} onReport={setReporting} onReply={setReplying} onProof={setProving} />)}
           </div>
         </section>
       </div>
       {reporting && <ReportSheet review={reporting} propertyLabel={`${displayAddress(property)}, ${property.postcode}`} onClose={closeReport} />}
+      {proving && <ProofSheet review={proving} onClose={closeProof} />}
       {replying && <ReplySheet review={replying} propertyLabel={`${displayAddress(property)}, ${property.postcode}`} onClose={closeReply} />}
     </main>
   );
