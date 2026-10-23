@@ -172,6 +172,8 @@ create policy "Public can read published replies"
 -- the website can never read them. Writes only happen through the
 -- functions below, which check everything first.
 
+-- Every table the website reads is granted explicitly here. Supabase stopped granting
+-- new tables automatically on 30 October 2026, so this file never relies on that.
 grant usage on schema public to anon, authenticated;
 revoke all on public.properties, public.reviews, public.review_private, public.reports,
               public.review_replies, public.reply_private, public.admin_keys from anon, authenticated;
@@ -185,6 +187,7 @@ create or replace function hs_private.moderation_flags(t text)
 returns text[]
 language sql
 immutable
+set search_path = pg_catalog
 as $$
   select array_remove(array[
     case when t ~* '[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}' then 'an email address' end,
@@ -785,6 +788,23 @@ as $$
                    where rr.status = 'pending' and rpp.needs_owner),
       'reports', (select count(*) from reports where status = 'open' and needs_owner)
     )
+  );
+$$;
+
+-- How close the database is to the Supabase free plan limit (500 MB).
+create or replace function hs_private.usage_check()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'database_mb', round(pg_database_size(current_database()) / 1048576.0, 1),
+    'free_limit_mb', 500,
+    'database_percent', round(100.0 * pg_database_size(current_database()) / (500 * 1048576.0), 1),
+    'proof_files_held', (select count(*) from hs_private.evidence where length(data) > 0),
+    'reviews', (select count(*) from reviews)
   );
 $$;
 

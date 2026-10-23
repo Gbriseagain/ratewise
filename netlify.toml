@@ -1,6 +1,9 @@
 [build]
   command = "npm run build"
   publish = "build"
+  # Each release costs 15 of the 300 free monthly credits, so only rebuild when
+  # something visitors see has changed. README and database files never trigger one.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- src public package.json package-lock.json netlify.toml"
 
 [build.environment]
   NODE_VERSION = "22"

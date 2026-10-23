@@ -39,6 +39,14 @@ If the admin link is ever lost or leaked, replace its hash in the `admin_keys` t
 - Proof files live in `hs_private.evidence`, are only readable through the admin key, and are erased once checked
   or after 30 days.
 
+## Staying inside the free limits
+
+- **Netlify**: 300 credits a month, hard limit (the site pauses, it is never charged). A release costs 15 credits,
+  so changes are batched. `netlify.toml` skips the build when only README or database files change, and
+  commits that should not release include `[skip ci]`. Netlify emails at 50, 75 and 100 per cent.
+- **Supabase**: 500 MB database. `hs_private.usage_check()` reports the size; the reviewer warns above 70 per cent.
+- **Claude**: the reviewer runs on the owner's plan. Usage credits stay switched off, so nothing is ever billed.
+
 ## Search engines
 
 Pages use normal addresses (`/property/<id>/<readable-name>`). `/sitemap.xml` is generated live by the
